@@ -1,0 +1,627 @@
+.app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+html {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overflow-x: hidden;
+  margin: 0;
+}
+
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+html::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.header {
+  background: rgba(255, 255, 255, 0.78);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  backdrop-filter: blur(14px);
+  border-top-left-radius: 0px !important;
+  border-top-right-radius: 0px !important;
+  position: relative;
+}
+
+.dark .header {
+  border-bottom-color: rgba(148, 163, 184, 0.1);
+}
+
+.header-inner {
+  max-width: 1126px;
+  margin: 0 auto;
+  padding: 22px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 18px;
+  border-radius: 999px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.theme-toggle:hover {
+  background: var(--accent-soft);
+}
+
+.dark .theme-toggle:hover {
+  background: rgba(96, 165, 250, 0.14);
+}
+
+.page {
+  width: 100%;
+  max-width: 1126px;
+  margin: 0 auto;
+  padding: 16px 0px;
+}
+
+.section {
+  margin-bottom: 18px;
+}
+
+.hero-card {
+  padding: 22px 22px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  margin-bottom: 18px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.back-header {
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--text);
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(2rem, 2.5vw, 2.8rem);
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-end;
+  margin-bottom: 18px;
+}
+
+.section-helper {
+  color: var(--muted);
+  max-width: 540px;
+}
+
+.summary-grid,
+.month-grid,
+.month-summary-grid,
+.credit-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.summary-grid,
+.month-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.month-grid {
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+}
+
+.section-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.compact-card-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.current-month-card {
+  width: 100%;
+}
+
+@media (max-width: 930px) {
+  .summary-grid,
+  .month-grid,
+  .month-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.summary-card,
+.month-card,
+.month-note-card,
+.credit-panel,
+.credit-list-card,
+.transaction-table-card,
+.transaction-form,
+.header {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-weight: 700;
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.summary-card {
+  padding: 16px 18px;
+  min-height: unset;
+}
+
+.summary-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.summary-card strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 1.5rem;
+}
+
+.summary-card.primary {
+  background: var(--surface);
+}
+
+.summary-card.primary:hover {
+  transform: none;
+  box-shadow: var(--shadow);
+}
+
+.summary-card.negative strong {
+  color: var(--negative);
+}
+
+.summary-card strong,
+.month-card strong,
+.credit-card .credit-value,
+.transaction-table-card .table-header span {
+  color: var(--text);
+}
+
+.month-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-height: 70px;
+}
+
+.link-card:hover .month-card,
+.month-card:hover {
+  transform: translateY(-1px);
+}
+
+.month-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.month-title {
+  font-weight: 700;
+  font-size: 0.98rem;
+  width: 140px;
+}
+
+.month-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.month-badge.negative {
+  color: var(--negative);
+  background: rgba(220, 38, 38, 0.12);
+}
+
+.month-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  flex: 1 1 auto;
+}
+
+.month-card-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.month-card-grid strong {
+  font-size: 0.95rem;
+}
+
+.month-balance {
+  display: none;
+}
+
+.summary-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.85rem;
+  background: var(--surface-strong);
+}
+
+.dark .summary-chip {
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+.credit-section .credit-layout {
+  grid-template-columns: 360px minmax(0, 1fr);
+}
+
+.month-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.5fr) minmax(320px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.transaction-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.month-page .left-column {
+  display: grid;
+  gap: 18px;
+}
+
+.month-page .right-column {
+  display: grid;
+}
+
+@media (max-width: 1100px) {
+  .month-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .credit-section .credit-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.credit-panel,
+.month-note-card,
+.transaction-form,
+.credit-list-card,
+.transaction-table-card {
+  padding: 16px 16px;
+}
+
+.credit-form label,
+.transaction-form label {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.credit-form input,
+.transaction-form input,
+.transaction-form select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  color: var(--text);
+  min-height: 36px;
+}
+
+.credit-form input::placeholder,
+.transaction-form input::placeholder,
+.transaction-form select::placeholder {
+  color: var(--muted);
+}
+
+.transaction-form .split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.transaction-form h3,
+.credit-form h3,
+.credit-list-header h3,
+.table-header h3 {
+  margin: 0 0 18px;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.form-actions .ghost-button {
+  min-width: 120px;
+}
+
+.primary {
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: white;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.12);
+}
+
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.dark .ghost-button {
+  background: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.ghost-button:hover {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.dark .ghost-button:hover {
+  background: rgba(148, 163, 184, 0.22);
+}
+
+.credit-list-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.pill {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.83rem;
+  font-weight: 700;
+}
+
+.empty-state,
+.small-text {
+  color: var(--muted);
+  margin: 0;
+}
+
+.credit-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-strong);
+  margin-bottom: 10px;
+}
+
+.dark .credit-card {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.credit-card:last-child {
+  margin-bottom: 0;
+}
+
+.credit-name {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.credit-meta,
+.credit-small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+
+.credit-right {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.credit-value {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.month-note-card {
+  display: grid;
+  gap: 10px;
+}
+
+.month-note-card strong {
+  font-size: 1.6rem;
+}
+
+.transaction-form,
+.credit-form {
+  width: 100%;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.transaction-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 14px;
+}
+
+.transaction-table th,
+.transaction-table td {
+  text-align: left;
+  padding: 10px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.transaction-table th {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.transaction-table td {
+  vertical-align: middle;
+}
+
+.transaction-table td.positive {
+  color: var(--positive);
+  font-weight: 700;
+}
+
+.transaction-table td.negative {
+  color: var(--negative);
+  font-weight: 700;
+}
+
+.transaction-table button {
+  background: transparent;
+  color: var(--accent);
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+
+.tfec {
+  min-width: 150px;
+}
+
+.tdes {
+  min-width: 230px;
+}
+
+.tmon {
+  min-width: 120px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.transaction-table button:hover {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.transaction-table button.danger {
+  color: var(--negative);
+}
+
+.danger {
+  background: #fee2e2;
+  color: var(--negative);
+}
+
+.small {
+  font-size: 0.92rem;
+  padding: 8px 12px;
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 18px 14px 28px;
+  }
+
+  .page-header,
+  .section-title {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ghost-button,
+  .primary {
+    width: 100%;
+  }
+
+  .transaction-form .split {
+    grid-template-columns: 1fr;
+  }
+}
