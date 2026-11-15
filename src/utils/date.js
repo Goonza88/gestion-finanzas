@@ -13,6 +13,16 @@ export const MONTH_NAMES = [
   'Diciembre',
 ]
 
+export function getCurrentDateISO() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+export function getCurrentMonthKey() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
 export function getMonthKeyFromDate(date) {
   if (!date) return ''
   // Accept YYYY-MM-DD without timezone and parse as local date to avoid timezone shifts

@@ -1,24 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 export default function MonthTransactionForm({ defaultDate, transactionToEdit, onSave, onCancel }) {
-  const [type, setType] = useState('income')
-  const [description, setDescription] = useState('')
-  const [amount, setAmount] = useState('')
-  const [date, setDate] = useState(defaultDate)
-
-  useEffect(() => {
-    if (transactionToEdit) {
-      setType(transactionToEdit.type)
-      setDescription(transactionToEdit.description || '')
-      setAmount(transactionToEdit.amount?.toString() || '')
-      setDate(transactionToEdit.date || defaultDate)
-      return
-    }
-    setType('income')
-    setDescription('')
-    setAmount('')
-    setDate(defaultDate)
-  }, [transactionToEdit, defaultDate])
+  const [type, setType] = useState(transactionToEdit?.type || 'income')
+  const [description, setDescription] = useState(transactionToEdit?.description || '')
+  const [amount, setAmount] = useState(transactionToEdit?.amount?.toString() || '')
+  const [date, setDate] = useState(transactionToEdit?.date || defaultDate)
 
   function handleSubmit(event) {
     event.preventDefault()

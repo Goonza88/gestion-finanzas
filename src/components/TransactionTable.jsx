@@ -1,4 +1,3 @@
-import React from 'react'
 import { formatCurrency, formatDate } from '../utils/format'
 
 export default function TransactionTable({ transactions, onDelete, onEdit }) {
@@ -35,7 +34,9 @@ export default function TransactionTable({ transactions, onDelete, onEdit }) {
                     <button type="button" className="ghost-button small" onClick={() => onEdit(tx)}>
                       Editar
                     </button>
-                    <button type="button" className="ghost-button small danger" onClick={() => onDelete(tx.id)}>
+                    <button type="button" className="ghost-button small danger" onClick={() => {
+                      if (window.confirm(`¿Eliminar "${tx.description}" por ${formatCurrency(tx.amount)}?`)) onDelete(tx.id)
+                    }}>
                       Eliminar
                     </button>
                   </div>

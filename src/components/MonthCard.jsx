@@ -1,4 +1,3 @@
-import React from 'react'
 import { formatCurrency } from '../utils/format'
 
 export default function MonthCard({ month }) {

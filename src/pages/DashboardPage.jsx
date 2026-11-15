@@ -1,7 +1,7 @@
-import React from 'react'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { formatCurrency } from '../utils/format'
-import { getMonthLabel } from '../utils/date'
+import { getCurrentMonthKey, getMonthLabel } from '../utils/date'
 import MonthCard from '../components/MonthCard'
 
 export default function DashboardPage({
@@ -10,9 +10,17 @@ export default function DashboardPage({
   monthSummaries,
   activeCredits,
   creditMonthlyCommitmentThisMonth,
+  changeYear,
+  applyRecurringTransactions,
 }) {
-  const currentKey = new Date().toISOString().slice(0, 7)
-  const currentMonth = monthSummaries.find((month) => month.monthKey === currentKey) || monthSummaries[0]
+  const currentKey = getCurrentMonthKey()
+  const currentMonth = String(year) === currentKey.slice(0, 4)
+    ? monthSummaries.find((month) => month.monthKey === currentKey)
+    : null
+
+  useEffect(() => {
+    if (String(year) === currentKey.slice(0, 4)) applyRecurringTransactions(currentKey)
+  }, [applyRecurringTransactions, currentKey, year])
 
   return (
     <div className="page dashboard-page">
@@ -22,7 +30,14 @@ export default function DashboardPage({
             <p className="eyebrow">Resumen anual</p>
             <h1>Finanzas {year}</h1>
           </div>
-          
+          <div className="action-buttons" aria-label="Cambiar año">
+            <button type="button" className="ghost-button small" onClick={() => changeYear(year - 1)} aria-label="Ver año anterior">
+              ←
+            </button>
+            <button type="button" className="ghost-button small" onClick={() => changeYear(year + 1)} aria-label="Ver año siguiente">
+              →
+            </button>
+          </div>
         </div>
 
         <div className="card-grid summary-grid">
@@ -63,7 +78,7 @@ export default function DashboardPage({
         </div>
       </section>
 
-      <section className="section current-month-panel">
+      {currentMonth && <section className="section current-month-panel">
         <div className="section-header-row">
           <div>
             <p className="eyebrow">Mes actual</p>
@@ -78,7 +93,7 @@ export default function DashboardPage({
             <MonthCard month={currentMonth} compact />
           </Link>
         )}
-      </section>
+      </section>}
 
       <section className="section month-list-section">
         <div className="section-title">

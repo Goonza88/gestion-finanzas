@@ -1,4 +1,3 @@
-import React from 'react'
 import { formatCurrency, formatDate } from '../utils/format'
 
 export default function TransactionList({ transactions = [], onDelete }) {

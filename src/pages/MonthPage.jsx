@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { formatCurrency } from '../utils/format'
-import { getMonthLabel, getMonthKeyFromDate } from '../utils/date'
+import { getCurrentDateISO, getMonthLabel, getMonthKeyFromDate } from '../utils/date'
+import { getCreditMonthlyPayment, isCreditActiveInMonth } from '../utils/credit'
 import MonthTransactionForm from '../components/MonthTransactionForm'
 import TransactionTable from '../components/TransactionTable'
 
@@ -11,7 +12,7 @@ export default function MonthPage({
   updateTransaction,
   removeTransaction,
   creditDetails,
-  annualTotals,
+  applyRecurringTransactions,
 }) {
   const { monthKey } = useParams()
   const monthData = getMonthRecord(monthKey)
@@ -24,18 +25,22 @@ export default function MonthPage({
   const expense = transactions
     .filter((tx) => tx.type === 'expense')
     .reduce((sum, tx) => sum + Number(tx.amount || 0), 0)
-  const monthCredits = creditDetails.filter((credit) => credit.startKey <= monthKey && monthKey <= credit.endKey)
-  const creditCommitment = monthCredits.reduce((sum, credit) => sum + Number(credit.monthlyPayment || 0), 0)
+  const monthCredits = creditDetails.filter((credit) => isCreditActiveInMonth(credit, monthKey))
+  const creditCommitment = monthCredits.reduce((sum, credit) => sum + getCreditMonthlyPayment(credit, monthKey), 0)
   const totalExpense = expense + creditCommitment
   const balance = income - totalExpense
 
   const defaultDateValue = (() => {
     const [year, month] = monthKey.split('-')
-    if (!year || !month) return new Date().toISOString().slice(0, 10)
+    if (!year || !month) return getCurrentDateISO()
     return `${year}-${String(month).padStart(2, '0')}-01`
   })()
 
   const [editingTransaction, setEditingTransaction] = useState(null)
+
+  useEffect(() => {
+    applyRecurringTransactions(monthKey)
+  }, [applyRecurringTransactions, monthKey])
 
   function handleSave(transaction) {
     const actualKey = getMonthKeyFromDate(transaction.date)
@@ -92,6 +97,7 @@ export default function MonthPage({
       <section className="section month-detail-grid">
         <div className="transaction-panel left-column">
           <MonthTransactionForm
+            key={editingTransaction?.id ?? `new-${monthKey}`}
             defaultDate={defaultDateValue}
             transactionToEdit={editingTransaction}
             onSave={handleSave}

@@ -1,10 +1,9 @@
-import React from 'react'
 import { Link } from 'react-router-dom'
 import { formatCurrency } from '../utils/format'
 import CreditForm from '../components/CreditForm'
 import CreditList from '../components/CreditList'
 
-export default function CreditsPage({ activeCredits, creditMonthlyCommitmentThisMonth, addCredit, removeCredit }) {
+export default function CreditsPage({ activeCredits, creditMonthlyCommitmentThisMonth, addCredit, removeCredit, updateCreditPayment }) {
   return (
     <div className="page dashboard-page">
       <section className="section hero-card">
@@ -44,7 +43,7 @@ export default function CreditsPage({ activeCredits, creditMonthlyCommitmentThis
             <CreditForm onAdd={addCredit} />
           </div>
           <div className="credit-panel credit-list-panel">
-            <CreditList credits={activeCredits} onDelete={removeCredit} />
+            <CreditList credits={activeCredits} onDelete={removeCredit} onChangePayment={updateCreditPayment} />
           </div>
         </div>
       </section>

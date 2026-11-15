@@ -1,36 +1,36 @@
-import React, { useState } from 'react'
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10)
-}
+import { useState } from 'react'
+import { getCurrentDateISO } from '../utils/date'
 
 export default function CreditForm({ onAdd }) {
   const [name, setName] = useState('')
+  const [duration, setDuration] = useState('fixed')
   const [totalPrice, setTotalPrice] = useState('')
   const [installments, setInstallments] = useState('12')
-  const [startDate, setStartDate] = useState(todayISO())
+  const [startDate, setStartDate] = useState(getCurrentDateISO())
 
   function handleSubmit(event) {
     event.preventDefault()
     const price = Number(totalPrice)
     const quota = Number(installments)
-    if (!name.trim() || !Number.isInteger(price) || price <= 0 || !Number.isInteger(quota) || quota <= 0) {
-      alert('Complete nombre, precio total y cantidad de cuotas válidas.')
+    if (!name.trim() || !Number.isInteger(price) || price <= 0 || (duration === 'fixed' && (!Number.isInteger(quota) || quota <= 0 || quota > price))) {
+      alert('Complete el nombre y los importes requeridos.')
       return
     }
 
     const credit = {
       name: name.trim(),
-      totalPrice: price,
-      installments: quota,
-      monthlyPayment: Math.round(price / quota),
+      duration,
+      totalPrice: duration === 'fixed' ? price : 0,
+      installments: duration === 'fixed' ? quota : null,
+      monthlyPayment: duration === 'fixed' ? Math.round(price / quota) : price,
       startDate,
     }
     onAdd(credit)
     setName('')
+    setDuration('fixed')
     setTotalPrice('')
     setInstallments('12')
-    setStartDate(todayISO())
+    setStartDate(getCurrentDateISO())
   }
 
   return (
@@ -48,7 +48,14 @@ export default function CreditForm({ onAdd }) {
         />
       </label>
       <label>
-        Precio total
+        Tipo de compromiso
+        <select value={duration} onChange={(event) => setDuration(event.target.value)}>
+          <option value="fixed">Compra con cantidad de cuotas</option>
+          <option value="ongoing">Pago mensual sin vencimiento</option>
+        </select>
+      </label>
+      <label>
+        {duration === 'fixed' ? 'Precio total' : 'Importe mensual'}
         <input
           type="text"
           inputMode="numeric"
@@ -60,18 +67,10 @@ export default function CreditForm({ onAdd }) {
           required
         />
       </label>
-      <label>
+      {duration === 'fixed' && <label>
         Cuotas
-        <input
-          type="number"
-          min="1"
-          step="1"
-          value={installments}
-          onChange={(event) => setInstallments(event.target.value)}
-          placeholder="12"
-          required
-        />
-      </label>
+        <input type="number" min="1" step="1" value={installments} onChange={(event) => setInstallments(event.target.value)} placeholder="12" required />
+      </label>}
       <label>
         Fecha de inicio
         <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required />

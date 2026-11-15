@@ -23,7 +23,7 @@ export function formatDate(dateStr) {
       d = new Date(dateStr)
     }
     return d.toLocaleDateString('es-AR', { year: 'numeric', month: 'short', day: 'numeric' })
-  } catch (e) {
+  } catch {
     return dateStr
   }
 }

@@ -1,64 +1,42 @@
-# React + Vite
+# Gestión financiera
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación de escritorio para registrar ingresos, egresos, compras en cuotas y pagos recurrentes.
 
-Currently, two official plugins are available:
+## Uso diario
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Los datos se guardan localmente en la computadora y en el perfil de usuario de la aplicación.
+- Usa **Exportar respaldo** para guardar una copia JSON antes de actualizar la app o como respaldo periódico.
+- Usa **Importar respaldo** para restaurar una copia. La importación reemplaza los datos actuales.
+- Para actualizar la aplicación, instala el nuevo archivo MSI sobre la versión anterior. Conserva el identificador de la aplicación para mantener el mismo almacenamiento local.
 
-## React Compiler
+## Desarrollo
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Requisitos: Node.js compatible con Vite 8. Rust y las herramientas de Tauri son necesarios para compilar la versión de escritorio.
 
-## Expanding the ESLint configuration
+Iniciar la versión web:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-
----
-
-# Gestión de Ingresos (Electron/Tauri)
-
-Aplicación de escritorio simple para gestión personal de ingresos y egresos.
-
-Requisitos:
-- Node.js (16+)
-- Rust y herramientas de Tauri si desea compilar la aplicación de escritorio (ver https://tauri.app)
-
-Desarrollo (web):
 ```bash
 npm install
 npm run dev
 ```
 
-Desarrollo (Tauri):
-1. En una terminal ejecutar el servidor web de Vite:
+Iniciar la aplicación de escritorio:
+
 ```bash
-npm run dev
-```
-2. En otra terminal ejecutar Tauri en modo dev:
-```bash
-npx tauri dev
+npm run tauri dev
 ```
 
-Construir la aplicación (web):
+Crear la versión web:
+
 ```bash
 npm run build
 ```
 
-Construir la aplicación (desktop - Tauri):
-1. Generar build web:
+Crear los instaladores de escritorio:
+
 ```bash
-npm run build
-```
-2. Empaquetar con Tauri:
-```bash
-npx tauri build
+npm run tauri build
 ```
 
-Iconos: los iconos para empaquetado están en `src-tauri/icons`.
-
-Notas:
-- La app usa `localStorage` para persistencia local.
-- No hay backend ni autenticación.
+En Windows, el instalador MSI se genera dentro de `src-tauri/target/release/bundle/msi`.
 

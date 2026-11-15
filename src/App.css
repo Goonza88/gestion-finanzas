@@ -50,6 +50,14 @@ html::-webkit-scrollbar {
   justify-content: space-between;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .header h1 {
   margin: 0;
   font-size: 28px;
@@ -362,6 +370,7 @@ h1 {
 }
 
 .credit-form input,
+.credit-form select,
 .transaction-form input,
 .transaction-form select {
   width: 100%;
@@ -606,6 +615,17 @@ h1 {
 }
 
 @media (max-width: 760px) {
+  .header-inner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .page {
     padding: 18px 14px 28px;
   }

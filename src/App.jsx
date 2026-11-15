@@ -1,10 +1,10 @@
-import React from 'react'
 import { HashRouter, Route, Routes } from 'react-router-dom'
 import './App.css'
 import Header from './components/Header'
 import DashboardPage from './pages/DashboardPage'
 import MonthPage from './pages/MonthPage'
 import CreditsPage from './pages/CreditsPage'
+import RecurringPage from './pages/RecurringPage'
 import useBudgetData from './hooks/useBudgetData'
 import useTheme from './hooks/useTheme'
 
@@ -15,7 +15,12 @@ function App() {
   return (
     <HashRouter>
       <div className="app-root">
-        <Header theme={theme} onToggleTheme={toggleTheme} />
+        <Header
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onExportBackup={budget.exportBackup}
+          onImportBackup={budget.importBackup}
+        />
         <Routes>
           <Route
             path="/"
@@ -26,6 +31,8 @@ function App() {
                 monthSummaries={budget.monthSummaries}
                 activeCredits={budget.activeCredits}
                 creditMonthlyCommitmentThisMonth={budget.creditMonthlyCommitmentThisMonth}
+                changeYear={budget.changeYear}
+                applyRecurringTransactions={budget.applyRecurringTransactions}
               />
             }
           />
@@ -38,6 +45,7 @@ function App() {
                 updateTransaction={budget.updateTransaction}
                 removeTransaction={budget.removeTransaction}
                 creditDetails={budget.creditDetails}
+                applyRecurringTransactions={budget.applyRecurringTransactions}
               />
             }
           />
@@ -49,6 +57,18 @@ function App() {
                 creditMonthlyCommitmentThisMonth={budget.creditMonthlyCommitmentThisMonth}
                 addCredit={budget.addCredit}
                 removeCredit={budget.removeCredit}
+                updateCreditPayment={budget.updateCreditPayment}
+              />
+            }
+          />
+          <Route
+            path="/repeticiones"
+            element={
+              <RecurringPage
+                recurringRules={budget.recurringRules}
+                addRecurringRule={budget.addRecurringRule}
+                updateRecurringRule={budget.updateRecurringRule}
+                removeRecurringRule={budget.removeRecurringRule}
               />
             }
           />

@@ -1,15 +1,11 @@
-import React, { useState } from 'react'
-import { formatCurrency } from '../utils/format'
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10)
-}
+import { useState } from 'react'
+import { getCurrentDateISO } from '../utils/date'
 
 export default function TransactionForm({ onAdd }) {
   const [type, setType] = useState('income')
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
-  const [date, setDate] = useState(todayISO())
+  const [date, setDate] = useState(getCurrentDateISO())
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -31,7 +27,7 @@ export default function TransactionForm({ onAdd }) {
     // reset form
     setDescription('')
     setAmount('')
-    setDate(todayISO())
+    setDate(getCurrentDateISO())
     setType('income')
   }
 
