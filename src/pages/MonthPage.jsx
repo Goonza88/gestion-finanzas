@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { formatCurrency } from '../utils/format'
 import { getCurrentDateISO, getMonthLabel, getMonthKeyFromDate } from '../utils/date'
 import MonthTransactionForm from '../components/MonthTransactionForm'
@@ -24,16 +24,22 @@ export default function MonthPage({
   const expense = transactions
     .filter((tx) => tx.type === 'expense')
     .reduce((sum, tx) => sum + Number(tx.amount || 0), 0)
-  const monthCreditPayments = transactions.filter((transaction) => transaction.isCreditInstallment)
-  const creditCommitment = monthCreditPayments.reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0)
+  const creditTransactions = transactions.filter((transaction) => (
+    transaction.sourceCreditId !== undefined && transaction.sourceCreditId !== null
+  ))
+  const creditCount = new Set(creditTransactions.map((transaction) => transaction.sourceCreditId)).size
+  const creditTotal = creditTransactions.reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0)
+  const recurringTransactions = transactions.filter((transaction) => (
+    transaction.sourceRecurringId !== undefined && transaction.sourceRecurringId !== null
+  ))
+  const recurringCount = new Set(recurringTransactions.map((transaction) => transaction.sourceRecurringId)).size
+  const recurringNet = recurringTransactions.reduce((sum, transaction) => (
+    sum + (transaction.type === 'income' ? 1 : -1) * Number(transaction.amount || 0)
+  ), 0)
+  const additionalMovementNet = recurringNet - creditTotal
   const totalExpense = expense
   const balance = income - totalExpense
-
-  const defaultDateValue = (() => {
-    const [year, month] = monthKey.split('-')
-    if (!year || !month) return getCurrentDateISO()
-    return `${year}-${String(month).padStart(2, '0')}-01`
-  })()
+  const defaultDateValue = getCurrentDateISO()
 
   const [editingTransaction, setEditingTransaction] = useState(null)
 
@@ -68,17 +74,18 @@ export default function MonthPage({
     setEditingTransaction(null)
   }
 
+  function formatSignedCurrency(amount) {
+    return `${amount < 0 ? '−' : '+'} ${formatCurrency(Math.abs(amount))}`
+  }
+
   return (
     <div className="page month-page">
       <section className="section hero-card">
-        <header className="page-header back-header">
+        <header className="page-header">
           <div>
             <p className="eyebrow">Mes seleccionado</p>
             <h1>{monthLabel}</h1>
           </div>
-          <Link to="/" className="ghost-button">
-            ← Volver al resumen
-          </Link>
         </header>
 
         <div className="card-grid month-summary-grid">
@@ -107,13 +114,19 @@ export default function MonthPage({
             onCancel={handleCancelEdit}
           />
           <aside className="month-note-card">
-            <p className="eyebrow">Cuotas registradas este mes</p>
-            <strong>{formatCurrency(creditCommitment)}</strong>
-            <p className="small-text">
-              {monthCreditPayments.length === 0
-                ? 'No hay pagos de cuotas en este mes.'
-                : `Incluye ${monthCreditPayments.length} pago(s) de cuotas.`}
-            </p>
+            <p className="eyebrow">Movimientos adicionales del mes</p>
+            <div className="month-movement-summary-row">
+              <span>{creditCount} {creditCount === 1 ? 'Crédito' : 'Créditos'}</span>
+              <strong>{formatCurrency(creditTotal)}</strong>
+            </div>
+            <div className="month-movement-summary-row">
+              <span>{recurringCount} {recurringCount === 1 ? 'Repetición' : 'Repeticiones'}</span>
+              <strong>{formatSignedCurrency(recurringNet)}</strong>
+            </div>
+            <div className="month-movement-summary-row total">
+              <span>Total</span>
+              <strong>{formatSignedCurrency(additionalMovementNet)}</strong>
+            </div>
           </aside>
         </div>
 

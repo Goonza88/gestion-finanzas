@@ -42,33 +42,42 @@ export default function MonthTransactionForm({ defaultDate, transactionToEdit, o
 
   return (
     <form className="transaction-form" onSubmit={handleSubmit}>
-      <h3>{transactionToEdit ? 'Editar movimiento' : 'Agregar movimiento'}</h3>
-      <div className="form-row split">
-        <label>
-          Tipo
-          <select value={type} onChange={(event) => setType(event.target.value)}>
-            <option value="income">Ingreso</option>
-            <option value="expense">Egreso</option>
-          </select>
-        </label>
-        <label>
-          Fecha
-          <input type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
-        </label>
+      <h3>{transactionToEdit ? 'Editar movimiento' : 'Nuevo movimiento'}</h3>
+      <div className="transaction-type-field">
+        <span>Tipo</span>
+        <div className="transaction-type-buttons" role="group" aria-label="Tipo de movimiento">
+          <button
+            type="button"
+            className={`transaction-type-button income ${type === 'income' ? 'selected' : ''}`}
+            aria-pressed={type === 'income'}
+            onClick={() => setType('income')}
+          >
+            Ingreso
+          </button>
+          <button
+            type="button"
+            className={`transaction-type-button expense ${type === 'expense' ? 'selected' : ''}`}
+            aria-pressed={type === 'expense'}
+            onClick={() => setType('expense')}
+          >
+            Egreso
+          </button>
+        </div>
       </div>
       <label>
         Descripción
-          <input
-            type="text"
-            value={description}
-            maxLength={25}
-            onChange={(event) => setDescription(event.target.value.slice(0, 25))}
-            placeholder="Ej. Venta, Medicamentos"
-            required
-          />
+        <input
+          type="text"
+          value={description}
+          maxLength={25}
+          onChange={(event) => setDescription(event.target.value.slice(0, 25))}
+          placeholder="Ej. Venta, Medicamentos"
+          required
+        />
       </label>
-      <label>
-        Monto
+      <div className="form-row split">
+        <label>
+          Monto
           <input
             type="text"
             inputMode="numeric"
@@ -82,10 +91,15 @@ export default function MonthTransactionForm({ defaultDate, transactionToEdit, o
             pattern="[0-9]+"
             required
           />
-      </label>
+        </label>
+        <label>
+          Fecha
+          <input type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
+        </label>
+      </div>
       <div className="form-actions">
         <button type="submit" className="primary">
-          {transactionToEdit ? 'Guardar cambios' : 'Guardar movimiento'}
+          {transactionToEdit ? 'Guardar cambios' : 'Agregar movimiento'}
         </button>
         {transactionToEdit && (
           <button type="button" className="ghost-button small" onClick={onCancel}>
