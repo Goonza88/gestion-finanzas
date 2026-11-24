@@ -9,6 +9,7 @@ export default function DashboardPage({
   year,
   annualTotals,
   monthSummaries,
+  monthlyRecords,
   activeCredits,
   creditMonthlyCommitmentThisMonth,
   changeYear,
@@ -16,9 +17,34 @@ export default function DashboardPage({
   applyMonthlyTransactions,
 }) {
   const currentKey = useCurrentMonthKey()
-  const currentMonth = String(year) === currentKey.slice(0, 4)
-    ? monthSummaries.find((month) => month.monthKey === currentKey)
-    : null
+  const currentTransactions = monthlyRecords[currentKey]?.transactions || []
+  const currentIncome = currentTransactions
+    .filter((transaction) => transaction.type === 'income')
+    .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0)
+  const currentExpense = currentTransactions
+    .filter((transaction) => transaction.type === 'expense')
+    .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0)
+  const currentCreditCount = new Set(currentTransactions
+    .filter((transaction) => (
+      transaction.isCreditInstallment === true &&
+      transaction.sourceCreditId !== undefined &&
+      transaction.sourceCreditId !== null
+    ))
+    .map((transaction) => transaction.sourceCreditId)).size
+  const currentRecurringCount = new Set(currentTransactions
+    .filter((transaction) => transaction.sourceRecurringId !== undefined && transaction.sourceRecurringId !== null)
+    .map((transaction) => transaction.sourceRecurringId)).size
+  const currentRepetitions = recurringRules.filter((rule) => (
+    rule.active !== false && rule.startMonth <= currentKey && (!rule.endMonth || currentKey <= rule.endMonth)
+  ))
+  const recurringMonthlyNet = currentRepetitions.reduce((sum, rule) => (
+    sum + (rule.type === 'income' ? 1 : -1) * Number(rule.amount || 0)
+  ), 0)
+  const combinedMonthlyCommitment = creditMonthlyCommitmentThisMonth + recurringMonthlyNet
+
+  function formatSignedCurrency(amount) {
+    return `${amount < 0 ? '−' : '+'} ${formatCurrency(Math.abs(amount))}`
+  }
 
   useEffect(() => {
     if (String(year) === currentKey.slice(0, 4)) applyMonthlyTransactions(currentKey)
@@ -58,29 +84,7 @@ export default function DashboardPage({
         </div>
       </section>
 
-      <section className="section installments-panel">
-        <div className="section-header-row">
-          <div>
-            <p className="eyebrow">Cuotas actuales</p>
-            <h2>Resumen de cuotas y compromisos</h2>
-          </div>
-          <Link to="/cuotas" className="ghost-button small">
-            Gestionar cuotas
-          </Link>
-        </div>
-        <div className="compact-card-row">
-          <article className="summary-card compact-card">
-            <p>Cuotas activas</p>
-            <strong>{activeCredits.length}</strong>
-          </article>
-          <article className="summary-card compact-card">
-            <p>Pago mensual</p>
-            <strong>{formatCurrency(creditMonthlyCommitmentThisMonth)}</strong>
-          </article>
-        </div>
-      </section>
-
-      {currentMonth && <section className="section current-month-panel">
+      <section className="section current-month-panel">
         <div className="section-header-row">
           <div>
             <p className="eyebrow">Mes actual</p>
@@ -90,12 +94,63 @@ export default function DashboardPage({
             Ver mes actual
           </Link>
         </div>
-        {currentMonth && (
-          <Link to={`/mes/${currentKey}`} className="link-card current-month-card">
-            <MonthCard month={currentMonth} compact />
+        <div className="dashboard-metric-grid" aria-label="Resumen del mes actual">
+          <article className="summary-card">
+            <p>Ingresos</p>
+            <strong>{formatCurrency(currentIncome)}</strong>
+          </article>
+          <article className="summary-card negative">
+            <p>Egresos</p>
+            <strong>{formatCurrency(currentExpense)}</strong>
+          </article>
+          <article className="summary-card">
+            <p>Movimientos</p>
+            <strong>{currentTransactions.length}</strong>
+          </article>
+          <article className="summary-card">
+            <p>Cuotas</p>
+            <strong>{currentCreditCount}</strong>
+          </article>
+          <article className="summary-card">
+            <p>Repeticiones</p>
+            <strong>{currentRecurringCount}</strong>
+          </article>
+        </div>
+      </section>
+
+      <section className="section installments-panel">
+        <div className="section-header-row">
+          <div>
+            <p className="eyebrow">Compromisos actuales</p>
+            <h2>Resumen de cuotas y repeticiones</h2>
+          </div>
+          <Link to="/cuotas" className="ghost-button small">
+            Gestionar cuotas
           </Link>
-        )}
-      </section>}
+        </div>
+        <div className="dashboard-metric-grid commitment-metric-grid">
+          <article className="summary-card">
+            <p>Cuotas activas</p>
+            <strong>{activeCredits.length}</strong>
+          </article>
+          <article className="summary-card">
+            <p>Pago mensual: cuotas</p>
+            <strong>{formatCurrency(creditMonthlyCommitmentThisMonth)}</strong>
+          </article>
+          <article className="summary-card">
+            <p>Repeticiones activas</p>
+            <strong>{currentRepetitions.length}</strong>
+          </article>
+          <article className="summary-card">
+            <p>Pago mensual: repeticiones</p>
+            <strong>{formatSignedCurrency(recurringMonthlyNet)}</strong>
+          </article>
+          <article className="summary-card">
+            <p>Pago mensual: combinado</p>
+            <strong>{formatSignedCurrency(combinedMonthlyCommitment)}</strong>
+          </article>
+        </div>
+      </section>
 
       <section className="section month-list-section">
         <div className="section-title">

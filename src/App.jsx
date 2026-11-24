@@ -41,6 +41,7 @@ function App() {
                     year={budget.year}
                     annualTotals={budget.annualTotals}
                     monthSummaries={budget.monthSummaries}
+                    monthlyRecords={budget.monthlyRecords}
                     activeCredits={budget.activeCredits}
                     creditMonthlyCommitmentThisMonth={budget.creditMonthlyCommitmentThisMonth}
                     changeYear={budget.changeYear}
