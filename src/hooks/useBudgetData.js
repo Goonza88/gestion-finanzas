@@ -3,6 +3,7 @@ import { invoke, isTauri } from '@tauri-apps/api/core'
 import { getCurrentMonthKey, getMonthKeyFromDate, getMonthLabel, getMonthSequence } from '../utils/date'
 import { getCreditMonthlyPayment, isOngoingCredit } from '../utils/credit'
 import {
+  addCreditInstallments as addCreditInstallmentsToBudget,
   addCreditExtraExpense as addCreditExtraExpenseToBudget,
   applyMonthlyTransactions as applyScheduledTransactions,
   closeRecurringRule as closeRecurringRuleState,
@@ -358,18 +359,18 @@ export default function useBudgetData() {
   function addCredit(credit) {
     const newCredit = {
       id: Date.now(),
-      duration: credit.duration,
+      duration: 'fixed',
       name: credit.name,
       totalPrice: Number(credit.totalPrice),
-      installments: credit.duration === 'ongoing' ? null : Number(credit.installments),
+      installments: Number(credit.installments),
       monthlyPayment: Number(credit.monthlyPayment),
       startDate: credit.startDate,
       paymentChanges: [],
     }
-    setBudget((prev) => ({
+    setBudget((prev) => addCreditInstallmentsToBudget({
       ...prev,
       credits: [newCredit, ...prev.credits],
-    }))
+    }, newCredit))
   }
 
   function updateCreditPayment(creditId, monthlyPayment) {
@@ -428,11 +429,22 @@ export default function useBudgetData() {
     setBudget((prev) => addCreditExtraExpenseToBudget(prev, creditId, monthKey, amount))
   }
 
-  function removeCredit(creditId) {
-    setBudget((prev) => ({
-      ...prev,
-      credits: prev.credits.filter((credit) => credit.id !== creditId),
-    }))
+  function removeCredit(creditId, removeCurrentMonth = false) {
+    setBudget((prev) => {
+      const monthlyRecords = Object.fromEntries(Object.entries(prev.monthlyRecords).map(([monthKey, record]) => {
+        const removeMonth = monthKey > currentMonthKey || (monthKey === currentMonthKey && removeCurrentMonth)
+        if (!removeMonth) return [monthKey, record]
+        return [monthKey, {
+          ...record,
+          transactions: (record.transactions || []).filter((transaction) => transaction.sourceCreditId !== creditId),
+        }]
+      }))
+      return {
+        ...prev,
+        credits: prev.credits.filter((credit) => credit.id !== creditId),
+        monthlyRecords,
+      }
+    })
   }
 
   function getMonthRecord(monthKey) {

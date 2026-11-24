@@ -53,6 +53,56 @@ function addTransaction(monthlyRecords, monthKey, transaction) {
   return savedTransaction
 }
 
+function addCreditInstallmentIfMissing(monthlyRecords, credit, paymentMonth, installmentNumber) {
+  const alreadyRecorded = Object.values(monthlyRecords).some((monthRecord) => (
+    Array.isArray(monthRecord?.transactions) && monthRecord.transactions.some((transaction) => (
+      transaction.sourceCreditId === credit.id &&
+      transaction.sourceCreditMonth === paymentMonth &&
+      transaction.isCreditInstallment === true
+    ))
+  ))
+  if (alreadyRecorded) return false
+
+  const amount = getCreditMonthlyPayment(credit, paymentMonth)
+  if (!Number.isSafeInteger(amount) || amount <= 0) return false
+  const description = credit.duration === 'fixed'
+    ? `${credit.name} · cuota ${installmentNumber}/${credit.installments}`
+    : `Pago mensual · ${credit.name}`
+  addTransaction(monthlyRecords, paymentMonth, {
+    type: 'expense',
+    description,
+    amount,
+    date: paymentMonth === credit.startKey ? credit.startDate : `${paymentMonth}-01`,
+    sourceCreditId: credit.id,
+    sourceCreditMonth: paymentMonth,
+    isCreditInstallment: true,
+    installmentNumber: credit.duration === 'fixed' ? installmentNumber : undefined,
+  })
+  return true
+}
+
+export function addCreditInstallments(data, credit) {
+  const normalizedCredit = getNormalizedCredit(credit)
+  if (!normalizedCredit || normalizedCredit.duration !== 'fixed') return data
+
+  const monthlyRecords = { ...(data.monthlyRecords || {}) }
+  const fromIndex = monthIndex(normalizedCredit.startKey)
+  const finalIndex = monthIndex(normalizedCredit.endKey)
+  let changed = false
+  for (let index = fromIndex; index <= finalIndex; index += 1) {
+    const paymentMonth = monthKeyFromIndex(index)
+    if (!isCreditActiveInMonth(normalizedCredit, paymentMonth)) continue
+    changed = addCreditInstallmentIfMissing(
+      monthlyRecords,
+      normalizedCredit,
+      paymentMonth,
+      index - fromIndex + 1,
+    ) || changed
+  }
+
+  return changed ? { ...data, monthlyRecords } : data
+}
+
 export function applyMonthlyTransactions(data, monthKey) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) return data
 
@@ -117,32 +167,8 @@ export function applyMonthlyTransactions(data, monthKey) {
     for (let index = fromIndex; index <= finalIndex; index += 1) {
       const paymentMonth = monthKeyFromIndex(index)
       if (!isCreditActiveInMonth(credit, paymentMonth)) continue
-      const alreadyRecorded = Object.values(monthlyRecords).some((monthRecord) => (
-        Array.isArray(monthRecord?.transactions) && monthRecord.transactions.some((transaction) => (
-          transaction.sourceCreditId === credit.id &&
-          transaction.sourceCreditMonth === paymentMonth &&
-          transaction.isCreditInstallment === true
-        ))
-      ))
-      if (alreadyRecorded) continue
-
-      const amount = getCreditMonthlyPayment(credit, paymentMonth)
-      if (!Number.isSafeInteger(amount) || amount <= 0) continue
       const installmentNumber = index - fromIndex + 1
-      const description = credit.duration === 'fixed'
-        ? `${credit.name} · cuota ${installmentNumber}/${credit.installments}`
-        : `Pago mensual · ${credit.name}`
-      addTransaction(monthlyRecords, paymentMonth, {
-        type: 'expense',
-        description,
-        amount,
-        date: paymentMonth === credit.startKey ? credit.startDate : `${paymentMonth}-01`,
-        sourceCreditId: credit.id,
-        sourceCreditMonth: paymentMonth,
-        isCreditInstallment: true,
-        installmentNumber: credit.duration === 'fixed' ? installmentNumber : undefined,
-      })
-      changed = true
+      changed = addCreditInstallmentIfMissing(monthlyRecords, credit, paymentMonth, installmentNumber) || changed
     }
   }
 

@@ -15,7 +15,7 @@ export default function CreditsPage({ activeCredits, creditMonthlyCommitmentThis
 
         <div className="card-grid summary-grid credit-summary-grid">
           <article className="summary-card">
-            <p>Cuotas activas</p>
+            <p>Cantidad de créditos activos</p>
             <strong>{activeCredits.length}</strong>
           </article>
           <article className="summary-card">

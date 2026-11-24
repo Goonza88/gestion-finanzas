@@ -2,6 +2,30 @@ import { useState } from 'react'
 import { getCurrentMonthKey } from '../utils/date'
 import { formatCurrency } from '../utils/format'
 
+function formatLongDate(dateValue) {
+  const match = String(dateValue || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return dateValue || '—'
+  const [, year, month, day] = match
+  return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+function getCreditFinalDate(credit) {
+  if (credit.duration !== 'fixed') return ''
+  const match = String(credit.startDate || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return ''
+  const [, yearText, monthText, dayText] = match
+  const startYear = Number(yearText)
+  const startMonth = Number(monthText)
+  const installments = Number(credit.installments) || 1
+  if (installments === 1) return credit.startDate
+  const finalMonth = new Date(startYear, startMonth - 1 + installments - 1, 1)
+  return `${finalMonth.getFullYear()}-${String(finalMonth.getMonth() + 1).padStart(2, '0')}-01`
+}
+
 function CreditCard({ credit, onDelete, onChangePayment, onAddExtraExpense }) {
   const [showExtraForm, setShowExtraForm] = useState(false)
   const [extraMonth, setExtraMonth] = useState(getCurrentMonthKey())
@@ -19,57 +43,79 @@ function CreditCard({ credit, onDelete, onChangePayment, onAddExtraExpense }) {
     setShowExtraForm(false)
   }
 
+  function handleDelete() {
+    if (!window.confirm(`¿Eliminar el crédito "${credit.name}"?`)) return
+    const removeCurrentMonth = window.confirm(
+      `¿También querés eliminar el registro de "${credit.name}" del mes actual? Los registros de los meses siguientes se eliminarán de todas formas.`,
+    )
+    onDelete(credit.id, removeCurrentMonth)
+  }
+
   return (
-    <article className="credit-card">
-      <div className="credit-information">
+    <article className="credit-card credit-installment-card">
+      <div className="credit-installment-header">
         <p className="credit-name">{credit.name}</p>
-        <p className="credit-meta">{credit.duration === 'ongoing' ? 'Sin vencimiento' : `${credit.installments} cuotas`} · desde {credit.startDate}</p>
+        <p className="credit-value">{formatCurrency(credit.monthlyPayment)} / Mes</p>
       </div>
-      <div className="credit-right">
-        <p className="credit-value">{formatCurrency(credit.monthlyPayment)} / mes</p>
-        {credit.duration === 'fixed' && <>
-          <p className="credit-small">Restan {credit.remainingInstallments} cuotas</p>
-          <p className="credit-small">Saldo estimado según calendario: {formatCurrency(credit.totalRemaining)}</p>
-          <p className="credit-small">Supone pagadas las cuotas de los meses transcurridos, incluido el actual.</p>
-        </>}
-        {credit.duration === 'ongoing' && <button type="button" className="ghost-button small" onClick={() => {
-          const entered = window.prompt(`Nuevo importe mensual para ${credit.name}:`, String(credit.monthlyPayment))
-          if (entered === null) return
-          const amount = Number(entered)
-          if (!Number.isSafeInteger(amount) || amount <= 0) {
-            window.alert('Ingrese un importe entero mayor que cero.')
-            return
-          }
-          onChangePayment(credit.id, amount)
-        }}>
-          Cambiar importe
-        </button>}
-        <button type="button" className="ghost-button small" onClick={() => setShowExtraForm((open) => !open)}>
-          Agregar gasto adicional
-        </button>
-        {showExtraForm && (
-          <form className="credit-extra-form" onSubmit={handleExtraExpense}>
-            <label>
-              Mes del gasto
-              <input type="month" value={extraMonth} onChange={(event) => setExtraMonth(event.target.value)} required />
-            </label>
-            <label>
-              Importe adicional
-              <input type="text" inputMode="numeric" pattern="[0-9]+" value={extraAmount} onChange={(event) => setExtraAmount(event.target.value.replace(/\D/g, ''))} placeholder="0" required />
-            </label>
-            <div className="form-actions">
-              <button type="submit" className="primary small">Guardar gasto</button>
-              <button type="button" className="ghost-button small" onClick={() => setShowExtraForm(false)}>Cancelar</button>
-            </div>
-            <p className="small-text">Queda registrado como gasto del mes y no modifica las cuotas restantes.</p>
-          </form>
+      <div className="credit-installment-row">
+        {credit.duration === 'fixed' ? (
+          <>
+            <span>Cuotas totales: {credit.installments}</span>
+            <span>Cuotas restantes: {credit.remainingInstallments}</span>
+          </>
+        ) : (
+          <>
+            <span>Compromiso mensual sin vencimiento</span>
+            <span>Cuotas restantes: —</span>
+          </>
         )}
-        <button type="button" className="ghost-button small danger" onClick={() => {
-          if (window.confirm(`¿Eliminar el compromiso "${credit.name}"? Los gastos ya registrados se conservan.`)) onDelete(credit.id)
-        }}>
-          Eliminar
-        </button>
       </div>
+      <div className="credit-installment-row">
+        <span>Inicio: {formatLongDate(credit.startDate)}</span>
+        <span>Finalización: {credit.duration === 'fixed' ? formatLongDate(getCreditFinalDate(credit)) : 'Sin vencimiento'}</span>
+      </div>
+      <div className="credit-installment-row credit-installment-footer">
+        <span>{credit.duration === 'fixed' ? `Pago total: ${formatCurrency(credit.totalPrice)}` : 'Pago total: —'}</span>
+        <div className="action-buttons credit-action-buttons">
+          {credit.duration === 'ongoing' && (
+            <button type="button" className="ghost-button small" onClick={() => {
+              const entered = window.prompt(`Nuevo importe mensual para ${credit.name}:`, String(credit.monthlyPayment))
+              if (entered === null) return
+              const amount = Number(entered)
+              if (!Number.isSafeInteger(amount) || amount <= 0) {
+                window.alert('Ingrese un importe entero mayor que cero.')
+                return
+              }
+              onChangePayment(credit.id, amount)
+            }}>
+              Cambiar importe
+            </button>
+          )}
+          <button type="button" className="ghost-button small" onClick={() => setShowExtraForm((open) => !open)}>
+            Agregar costo adicional
+          </button>
+          <button type="button" className="ghost-button small danger" onClick={handleDelete}>
+            Eliminar
+          </button>
+        </div>
+      </div>
+      {showExtraForm && (
+        <form className="credit-extra-form" onSubmit={handleExtraExpense}>
+          <label>
+            Mes del gasto
+            <input type="month" value={extraMonth} onChange={(event) => setExtraMonth(event.target.value)} required />
+          </label>
+          <label>
+            Importe adicional
+            <input type="text" inputMode="numeric" pattern="[0-9]+" value={extraAmount} onChange={(event) => setExtraAmount(event.target.value.replace(/\D/g, ''))} placeholder="0" required />
+          </label>
+          <div className="form-actions">
+            <button type="submit" className="primary small">Guardar gasto</button>
+            <button type="button" className="ghost-button small" onClick={() => setShowExtraForm(false)}>Cancelar</button>
+          </div>
+          <p className="small-text">Queda registrado como gasto del mes y no modifica las cuotas restantes.</p>
+        </form>
+      )}
     </article>
   )
 }
@@ -79,7 +125,6 @@ export default function CreditList({ credits, onDelete, onChangePayment, onAddEx
     <div className="credit-list-card">
       <div className="credit-list-header">
         <h3>Créditos activos</h3>
-        <span className="pill">{credits.length} activos</span>
       </div>
       {credits.length === 0 ? (
         <p className="empty-state">No hay créditos registrados. Añadí uno para comenzar.</p>
