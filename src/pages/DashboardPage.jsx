@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatCurrency } from '../utils/format'
 import { getMonthLabel } from '../utils/date'
@@ -16,6 +16,7 @@ export default function DashboardPage({
   recurringRules,
   applyMonthlyTransactions,
 }) {
+  const [monthsExpanded, setMonthsExpanded] = useState(false)
   const currentKey = useCurrentMonthKey()
   const currentTransactions = monthlyRecords[currentKey]?.transactions || []
   const currentIncome = currentTransactions
@@ -156,11 +157,24 @@ export default function DashboardPage({
         <div className="section-title">
           <div>
             <p className="eyebrow">Meses</p>
-            <h2>Resumen por mes</h2>
+            <h2>
+              <button
+                type="button"
+                className="month-list-toggle"
+                aria-expanded={monthsExpanded}
+                aria-controls="dashboard-month-grid"
+                onClick={() => setMonthsExpanded((expanded) => !expanded)}
+              >
+                Resumen por mes
+                <span className={`month-list-chevron${monthsExpanded ? ' expanded' : ''}`} aria-hidden="true" />
+              </button>
+            </h2>
           </div>
-          <p className="section-helper">Selecciona un mes para ver ingresos y egresos detallados.</p>
+          {monthsExpanded && (
+            <p className="section-helper">Selecciona un mes para ver ingresos y egresos detallados.</p>
+          )}
         </div>
-        <div className="month-grid">
+        <div id="dashboard-month-grid" className="month-grid" hidden={!monthsExpanded}>
           {monthSummaries.map((month) => (
             <Link key={month.monthKey} to={`/mes/${month.monthKey}`} className="link-card">
               <MonthCard month={month} />

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
+import ConfirmationDialog from './ConfirmationDialog'
 
 export default function BackupManager({ open, onClose, onRestore }) {
   const [backups, setBackups] = useState([])
   const [loading, setLoading] = useState(false)
   const [restoringName, setRestoringName] = useState('')
   const [error, setError] = useState('')
+  const [backupPendingRestore, setBackupPendingRestore] = useState(null)
   const unavailableMessage = open && !isTauri()
     ? 'Las copias locales están disponibles en la versión instalada de escritorio.'
     : ''
@@ -35,8 +37,10 @@ export default function BackupManager({ open, onClose, onRestore }) {
     return () => { cancelled = true }
   }, [open])
 
-  async function restoreBackup(backup) {
-    if (!window.confirm(`Restaurar la copia del ${new Date(backup.modifiedAt).toLocaleString('es-AR')} reemplazará los datos actuales. ¿Continuar?`)) return
+  async function confirmRestoreBackup() {
+    const backup = backupPendingRestore
+    setBackupPendingRestore(null)
+    if (!backup) return
     setRestoringName(backup.name)
     setError('')
     try {
@@ -54,40 +58,55 @@ export default function BackupManager({ open, onClose, onRestore }) {
   if (!open) return null
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="backup-modal" role="dialog" aria-modal="true" aria-labelledby="backup-modal-title">
-        <header className="backup-modal-header">
-          <div>
-            <p className="eyebrow">Seguridad de los datos</p>
-            <h2 id="backup-modal-title">Copias locales</h2>
-          </div>
-          <button type="button" className="ghost-button small" onClick={onClose}>Cerrar</button>
-        </header>
-        {loading && <p className="empty-state">Buscando copias…</p>}
-        {(unavailableMessage || error) && <p className="backup-error" role="alert">{unavailableMessage || error}</p>}
-        {!loading && !unavailableMessage && !error && backups.length === 0 && <p className="empty-state">Todavía no hay copias locales. Se crea una al iniciar la aplicación.</p>}
-        {backups.length > 0 && (
-          <div className="backup-list">
-            {backups.map((backup) => (
-              <article key={backup.name} className="backup-row">
-                <div>
-                  <strong>{new Date(backup.modifiedAt).toLocaleString('es-AR')}</strong>
-                  <p className="small-text">{backup.name}</p>
-                </div>
-                <button
-                  type="button"
-                  className="ghost-button small"
-                  disabled={Boolean(restoringName)}
-                  onClick={() => restoreBackup(backup)}
-                >
-                  {restoringName === backup.name ? 'Restaurando…' : 'Restaurar'}
-                </button>
-              </article>
-            ))}
-          </div>
-        )}
-        <p className="backup-note">Se conservan las 30 copias más recientes. Antes de restaurar se guarda otra copia de los datos actuales.</p>
-      </section>
-    </div>
+    <>
+      <div className="modal-backdrop" role="presentation">
+        <section className="backup-modal" role="dialog" aria-modal="true" aria-labelledby="backup-modal-title">
+          <header className="backup-modal-header">
+            <div>
+              <p className="eyebrow">Seguridad de los datos</p>
+              <h2 id="backup-modal-title">Copias locales</h2>
+            </div>
+            <button type="button" className="ghost-button small" onClick={onClose}>Cerrar</button>
+          </header>
+          {loading && <p className="empty-state">Buscando copias…</p>}
+          {(unavailableMessage || error) && <p className="backup-error" role="alert">{unavailableMessage || error}</p>}
+          {!loading && !unavailableMessage && !error && backups.length === 0 && <p className="empty-state">Todavía no hay copias locales. Se crea una al iniciar la aplicación.</p>}
+          {backups.length > 0 && (
+            <div className="backup-list">
+              {backups.map((backup) => (
+                <article key={backup.name} className="backup-row">
+                  <div>
+                    <strong>{new Date(backup.modifiedAt).toLocaleString('es-AR')}</strong>
+                    <p className="small-text">{backup.name}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="ghost-button small"
+                    disabled={Boolean(restoringName)}
+                    onClick={() => setBackupPendingRestore(backup)}
+                  >
+                    {restoringName === backup.name ? 'Restaurando…' : 'Restaurar'}
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+          <p className="backup-note">Se conservan las 30 copias más recientes. Antes de restaurar se guarda otra copia de los datos actuales.</p>
+        </section>
+      </div>
+      {backupPendingRestore && (
+        <ConfirmationDialog
+          title="Restaurar copia local"
+          description={`La copia del ${new Date(backupPendingRestore.modifiedAt).toLocaleString('es-AR')} reemplazará los datos actuales.`}
+          dialogClassName="wide-dialog"
+          backdropClassName="elevated"
+          onCancel={() => setBackupPendingRestore(null)}
+          actions={[
+            { label: 'Cancelar', onClick: () => setBackupPendingRestore(null) },
+            { label: 'Restaurar copia', variant: 'danger', onClick: confirmRestoreBackup },
+          ]}
+        />
+      )}
+    </>
   )
 }

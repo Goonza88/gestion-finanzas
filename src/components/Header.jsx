@@ -1,10 +1,12 @@
 import { useRef, useState } from 'react'
 import { getCurrentDateISO } from '../utils/date'
 import BackupManager from './BackupManager'
+import ConfirmationDialog from './ConfirmationDialog'
 
 export default function Header({ theme, onToggleTheme, onExportBackup, onImportBackup }) {
   const backupFileRef = useRef(null)
   const [backupManagerOpen, setBackupManagerOpen] = useState(false)
+  const [pendingImport, setPendingImport] = useState(null)
 
   function handleExportBackup() {
     const blob = new Blob([onExportBackup()], { type: 'application/json' })
@@ -22,13 +24,22 @@ export default function Header({ theme, onToggleTheme, onExportBackup, onImportB
 
     try {
       const contents = await file.text()
-      if (!window.confirm('Importar este respaldo reemplazará los datos actuales. ¿Continuar?')) return
-      await onImportBackup(contents)
-      window.alert('Respaldo importado correctamente.')
+      setPendingImport(contents)
     } catch (error) {
       window.alert(error.message || 'No se pudo importar el respaldo.')
     } finally {
       event.target.value = ''
+    }
+  }
+
+  async function confirmImportBackup() {
+    try {
+      await onImportBackup(pendingImport)
+      window.alert('Respaldo importado correctamente.')
+    } catch (error) {
+      window.alert(error.message || 'No se pudo importar el respaldo.')
+    } finally {
+      setPendingImport(null)
     }
   }
 
@@ -61,6 +72,17 @@ export default function Header({ theme, onToggleTheme, onExportBackup, onImportB
         </div>
       </header>
       <BackupManager open={backupManagerOpen} onClose={() => setBackupManagerOpen(false)} onRestore={onImportBackup} />
+      {pendingImport !== null && (
+        <ConfirmationDialog
+          title="Importar respaldo"
+          description="Este respaldo reemplazará los datos actuales. ¿Querés continuar?"
+          onCancel={() => setPendingImport(null)}
+          actions={[
+            { label: 'Cancelar', onClick: () => setPendingImport(null) },
+            { label: 'Importar respaldo', variant: 'danger', onClick: confirmImportBackup },
+          ]}
+        />
+      )}
     </>
   )
 }

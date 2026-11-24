@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { getCurrentMonthKey } from '../utils/date'
+import { useRef, useState } from 'react'
+import { getCurrentMonthKey, getMonthLabel } from '../utils/date'
 import { formatCurrency } from '../utils/format'
+import ConfirmationDialog from './ConfirmationDialog'
 
 function formatLongDate(dateValue) {
   const match = String(dateValue || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
@@ -26,7 +27,7 @@ function getCreditFinalDate(credit) {
   return `${finalMonth.getFullYear()}-${String(finalMonth.getMonth() + 1).padStart(2, '0')}-01`
 }
 
-function CreditCard({ credit, onDelete, onChangePayment, onAddExtraExpense }) {
+function CreditCard({ credit, onRequestDelete, onChangePayment, onAddExtraExpense }) {
   const [showExtraForm, setShowExtraForm] = useState(false)
   const [extraMonth, setExtraMonth] = useState(getCurrentMonthKey())
   const [extraAmount, setExtraAmount] = useState('')
@@ -41,14 +42,6 @@ function CreditCard({ credit, onDelete, onChangePayment, onAddExtraExpense }) {
     onAddExtraExpense(credit.id, extraMonth, amount)
     setExtraAmount('')
     setShowExtraForm(false)
-  }
-
-  function handleDelete() {
-    if (!window.confirm(`¿Eliminar el crédito "${credit.name}"?`)) return
-    const removeCurrentMonth = window.confirm(
-      `¿También querés eliminar el registro de "${credit.name}" del mes actual? Los registros de los meses siguientes se eliminarán de todas formas.`,
-    )
-    onDelete(credit.id, removeCurrentMonth)
   }
 
   return (
@@ -94,7 +87,7 @@ function CreditCard({ credit, onDelete, onChangePayment, onAddExtraExpense }) {
           <button type="button" className="ghost-button small" onClick={() => setShowExtraForm((open) => !open)}>
             Agregar costo adicional
           </button>
-          <button type="button" className="ghost-button small danger" onClick={handleDelete}>
+          <button type="button" className="ghost-button small danger" onClick={(event) => onRequestDelete(credit, event.currentTarget)}>
             Eliminar
           </button>
         </div>
@@ -121,6 +114,24 @@ function CreditCard({ credit, onDelete, onChangePayment, onAddExtraExpense }) {
 }
 
 export default function CreditList({ credits, onDelete, onChangePayment, onAddExtraExpense }) {
+  const [creditPendingDelete, setCreditPendingDelete] = useState(null)
+  const deleteTriggerRef = useRef(null)
+
+  function requestDelete(credit, trigger) {
+    deleteTriggerRef.current = trigger
+    setCreditPendingDelete(credit)
+  }
+
+  function closeDeleteDialog() {
+    setCreditPendingDelete(null)
+    window.requestAnimationFrame(() => deleteTriggerRef.current?.focus())
+  }
+
+  function confirmDelete(removeCurrentMonth) {
+    onDelete(creditPendingDelete.id, removeCurrentMonth)
+    closeDeleteDialog()
+  }
+
   return (
     <div className="credit-list-card">
       <div className="credit-list-header">
@@ -131,9 +142,22 @@ export default function CreditList({ credits, onDelete, onChangePayment, onAddEx
       ) : (
         <div className="credit-list">
           {credits.map((credit) => (
-            <CreditCard key={credit.id} credit={credit} onDelete={onDelete} onChangePayment={onChangePayment} onAddExtraExpense={onAddExtraExpense} />
+            <CreditCard key={credit.id} credit={credit} onRequestDelete={requestDelete} onChangePayment={onChangePayment} onAddExtraExpense={onAddExtraExpense} />
           ))}
         </div>
+      )}
+      {creditPendingDelete && (
+        <ConfirmationDialog
+          title="Eliminar crédito"
+          description={`Se eliminará “${creditPendingDelete.name}” de los créditos activos y sus pagos futuros. ¿Qué querés hacer con el movimiento actual de ${getMonthLabel(getCurrentMonthKey())}?`}
+          dialogClassName="wide-dialog plain-dialog"
+          onCancel={closeDeleteDialog}
+          actions={[
+            { label: 'Cancelar', onClick: closeDeleteDialog },
+            { label: 'Conservar este mes', onClick: () => confirmDelete(false) },
+            { label: 'Eliminar también este mes', variant: 'danger', onClick: () => confirmDelete(true) },
+          ]}
+        />
       )}
     </div>
   )

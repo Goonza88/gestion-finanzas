@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { MONTH_NAMES, getCurrentMonthKey, getMonthLabel } from '../utils/date'
 import { formatCurrency } from '../utils/format'
 import { summarizeRecurringHistory } from '../utils/monthlyRecords'
+import ConfirmationDialog from '../components/ConfirmationDialog'
 
 function MonthPicker({ label, value, onChange }) {
   const [year = '', month = '01'] = value.split('-')
@@ -126,7 +127,7 @@ function RecurringRuleCard({ rule, history, onEdit, onDelete }) {
         <p className="credit-value">{formatCurrency(rule.amount)} / Mes</p>
       </div>
       <div className="recurring-card-row">
-        <span>{(rule.type === 'income' ? 'Ingreso' : 'Egreso') + ` · Desde ${getMonthLabel(rule.startMonth)}`}</span>
+        <span>{(rule.type === 'income' ? 'Ingreso' : 'Egreso') + ` - Desde ${getMonthLabel(rule.startMonth)}`}</span>
         <span>Meses acumulados: {history.months}</span>
       </div>
       <div className="recurring-card-row recurring-card-footer">
@@ -144,6 +145,7 @@ function RecurringRuleCard({ rule, history, onEdit, onDelete }) {
 
 export default function RecurringPage({ recurringRules, monthlyRecords, addRecurringRule, updateRecurringRule, closeRecurringRule }) {
   const [editingRule, setEditingRule] = useState(null)
+  const [pendingRuleUpdate, setPendingRuleUpdate] = useState(null)
   const [closingRule, setClosingRule] = useState(null)
   const currentMonthKey = getCurrentMonthKey()
   const activeRules = recurringRules.filter((rule) => rule.active !== false)
@@ -157,13 +159,16 @@ export default function RecurringPage({ recurringRules, monthlyRecords, addRecur
 
   function handleSave(rule) {
     if (rule.id !== undefined && rule.id !== null) {
-      const applyToCurrentMonth = window.confirm(
-        `¿Aplicar los cambios también a ${getMonthLabel(currentMonthKey)}? Si elegís No, se aplicarán desde el mes siguiente. Los meses anteriores se conservan.`,
-      )
-      updateRecurringRule(rule, applyToCurrentMonth)
-    } else {
-      addRecurringRule(rule)
+      setPendingRuleUpdate(rule)
+      return
     }
+    addRecurringRule(rule)
+    setEditingRule(null)
+  }
+
+  function finishRuleUpdate(applyToCurrentMonth) {
+    updateRecurringRule(pendingRuleUpdate, applyToCurrentMonth)
+    setPendingRuleUpdate(null)
     setEditingRule(null)
   }
 
@@ -237,18 +242,32 @@ export default function RecurringPage({ recurringRules, monthlyRecords, addRecur
         </div>
       </section>
 
+      {pendingRuleUpdate && (
+        <ConfirmationDialog
+          title={`¿Aplicar los cambios a ${getMonthLabel(currentMonthKey)}?`}
+          description="Los meses anteriores conservarán sus datos. Podés aplicar la edición desde el mes siguiente o actualizar también el mes actual."
+          dialogClassName="wide-dialog"
+          onCancel={() => setPendingRuleUpdate(null)}
+          actions={[
+            { label: 'Seguir editando', onClick: () => setPendingRuleUpdate(null) },
+            { label: 'Desde el mes siguiente', variant: 'primary', onClick: () => finishRuleUpdate(false) },
+            { label: 'También este mes', variant: 'primary', onClick: () => finishRuleUpdate(true) },
+          ]}
+        />
+      )}
+
       {closingRule && (
-        <div className="modal-backdrop" role="presentation">
-          <section className="decision-modal" role="dialog" aria-modal="true" aria-labelledby="delete-recurring-title">
-            <h2 id="delete-recurring-title">Eliminar repetición</h2>
-            <p>Vas a eliminar “{closingRule.description}”. ¿También se elimina su movimiento de {getMonthLabel(currentMonthKey)}? Los meses siguientes se eliminan siempre.</p>
-            <div className="form-actions">
-              <button type="button" className="primary" onClick={() => handleClose(true)}>Sí</button>
-              <button type="button" className="ghost-button" onClick={() => handleClose(false)}>No</button>
-              <button type="button" className="ghost-button" onClick={() => setClosingRule(null)}>Cancelar</button>
-            </div>
-          </section>
-        </div>
+        <ConfirmationDialog
+          title="Eliminar repetición"
+          description={`Se eliminará “${closingRule.description}” de las repeticiones activas y sus pagos futuros. ¿Qué querés hacer con el movimiento actual de ${getMonthLabel(currentMonthKey)}?`}
+          dialogClassName="wide-dialog plain-dialog"
+          onCancel={() => setClosingRule(null)}
+          actions={[
+            { label: 'Cancelar', onClick: () => setClosingRule(null) },
+            { label: 'Conservar este mes', onClick: () => handleClose(true) },
+            { label: 'Eliminar también este mes', variant: 'danger', onClick: () => handleClose(false) },
+          ]}
+        />
       )}
     </div>
   )
