@@ -5,6 +5,29 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gestión financiera</title>
+    <script>
+      try {
+        const savedTheme = localStorage.getItem('gestion_financiera_tema')
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (savedTheme === 'dark' || (savedTheme !== 'light' && prefersDark)) {
+          document.documentElement.classList.add('dark')
+        }
+      } catch {}
+    </script>
+    <style>
+      html,
+      body {
+        min-height: 100%;
+        background: #f2f0eb;
+        color: #373a35;
+      }
+
+      html.dark,
+      html.dark body {
+        background: #111827;
+        color: #f8fafc;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
