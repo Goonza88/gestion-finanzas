@@ -77,54 +77,64 @@ function RecurringRuleForm({ rule, onSave, onCancel }) {
 
   return (
     <form className="transaction-form" onSubmit={handleSubmit}>
-      <h3>{rule ? 'Editar repetición' : 'Agregar repetición'}</h3>
-      <label>
-        Tipo
-        <select value={type} onChange={(event) => setType(event.target.value)}>
-          <option value="expense">Gasto</option>
-          <option value="income">Ingreso</option>
-        </select>
-      </label>
-      <label>
-        Descripción
-        <input type="text" maxLength={40} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ej. Alquiler" required />
-      </label>
-      <label>
-        Importe mensual
-        <input type="text" inputMode="numeric" pattern="[0-9]+" value={amount} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} placeholder="0" required />
-      </label>
-      <MonthPicker label="Desde" value={startMonth} onChange={setStartMonth} />
-      <div className="form-actions">
-        <button type="submit" className="primary">{rule ? 'Guardar cambios' : 'Crear repetición'}</button>
-        {rule && <button type="button" className="ghost-button small" onClick={onCancel}>Cancelar</button>}
+      <h3>{rule ? 'Editar repetición' : 'Nueva repetición'}</h3>
+      <div className="recurring-form-grid">
+        <div className="transaction-type-field full-width">
+          <span>Tipo</span>
+          <div className="transaction-type-buttons" role="group" aria-label="Tipo de repetición">
+            <button
+              type="button"
+              className={`transaction-type-button income ${type === 'income' ? 'selected' : ''}`}
+              aria-pressed={type === 'income'}
+              onClick={() => setType('income')}
+            >
+              Ingreso
+            </button>
+            <button
+              type="button"
+              className={`transaction-type-button expense ${type === 'expense' ? 'selected' : ''}`}
+              aria-pressed={type === 'expense'}
+              onClick={() => setType('expense')}
+            >
+              Egreso
+            </button>
+          </div>
+        </div>
+        <label className="full-width">
+          Descripción
+          <input type="text" maxLength={40} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ej. Alquiler" required />
+        </label>
+        <label>
+          Monto mensual
+          <input type="text" inputMode="numeric" pattern="[0-9]+" value={amount} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} placeholder="0" required />
+        </label>
+        <MonthPicker label="Desde" value={startMonth} onChange={setStartMonth} />
+        <div className="form-actions full-width">
+          <button type="submit" className="primary">{rule ? 'Guardar cambios' : 'Agregar repetición'}</button>
+          {rule && <button type="button" className="ghost-button small" onClick={onCancel}>Cancelar</button>}
+        </div>
       </div>
     </form>
   )
 }
 
-function RecurringRuleCard({ rule, history, onEdit, onClose }) {
+function RecurringRuleCard({ rule, history, onEdit, onDelete }) {
   return (
-    <article className="credit-card recurring-card">
-      <div>
+    <article className="credit-card recurring-card recurring-rule-card">
+      <div className="recurring-card-header">
         <p className="credit-name">{rule.description}</p>
-        <p className="credit-meta">
-          {(rule.type === 'income' ? 'Ingreso' : 'Gasto') + ` · Desde ${getMonthLabel(rule.startMonth)}`}
-          {rule.active === false && rule.endMonth && rule.endMonth >= rule.startMonth ? ` · Hasta ${getMonthLabel(rule.endMonth)}` : ''}
-          {rule.active === false && (!rule.endMonth || rule.endMonth < rule.startMonth) ? ' · Sin meses activos' : ''}
-        </p>
-        {rule.active === false && (
-          <div className="recurring-history-meta">
-            <span>{history.months} {history.months === 1 ? 'mes registrado' : 'meses registrados'}</span>
-            <span>Total registrado: {formatCurrency(history.total)}</span>
-          </div>
-        )}
+        <p className="credit-value">{formatCurrency(rule.amount)} / Mes</p>
       </div>
-      <div className="credit-right">
-        <p className="credit-value">{formatCurrency(rule.amount)} / mes</p>
+      <div className="recurring-card-row">
+        <span>{(rule.type === 'income' ? 'Ingreso' : 'Egreso') + ` · Desde ${getMonthLabel(rule.startMonth)}`}</span>
+        <span>Meses acumulados: {history.months}</span>
+      </div>
+      <div className="recurring-card-row recurring-card-footer">
+        <span>Pago acumulado: {formatCurrency(history.total)}</span>
         {rule.active !== false ? (
-          <div className="action-buttons">
+          <div className="action-buttons recurring-action-buttons">
             <button type="button" className="ghost-button small" onClick={() => onEdit(rule)}>Editar</button>
-            <button type="button" className="ghost-button small danger" onClick={() => onClose(rule)}>Cerrar repetición</button>
+            <button type="button" className="ghost-button small danger" onClick={() => onDelete(rule)}>Eliminar</button>
           </div>
         ) : <span className="pill">Finalizada</span>}
       </div>
@@ -135,12 +145,25 @@ function RecurringRuleCard({ rule, history, onEdit, onClose }) {
 export default function RecurringPage({ recurringRules, monthlyRecords, addRecurringRule, updateRecurringRule, closeRecurringRule }) {
   const [editingRule, setEditingRule] = useState(null)
   const [closingRule, setClosingRule] = useState(null)
+  const currentMonthKey = getCurrentMonthKey()
   const activeRules = recurringRules.filter((rule) => rule.active !== false)
   const archivedRules = recurringRules.filter((rule) => rule.active === false)
+  const monthlyIncome = activeRules
+    .filter((rule) => rule.type === 'income')
+    .reduce((sum, rule) => sum + Number(rule.amount || 0), 0)
+  const monthlyExpense = activeRules
+    .filter((rule) => rule.type === 'expense')
+    .reduce((sum, rule) => sum + Number(rule.amount || 0), 0)
 
   function handleSave(rule) {
-    if (rule.id !== undefined && rule.id !== null) updateRecurringRule(rule)
-    else addRecurringRule(rule)
+    if (rule.id !== undefined && rule.id !== null) {
+      const applyToCurrentMonth = window.confirm(
+        `¿Aplicar los cambios también a ${getMonthLabel(currentMonthKey)}? Si elegís No, se aplicarán desde el mes siguiente. Los meses anteriores se conservan.`,
+      )
+      updateRecurringRule(rule, applyToCurrentMonth)
+    } else {
+      addRecurringRule(rule)
+    }
     setEditingRule(null)
   }
 
@@ -158,6 +181,20 @@ export default function RecurringPage({ recurringRules, monthlyRecords, addRecur
             <h1>Gastos e ingresos comunes</h1>
           </div>
         </div>
+        <div className="card-grid recurring-summary-grid">
+          <article className="summary-card">
+            <p>Cantidad de repeticiones activas</p>
+            <strong>{activeRules.length}</strong>
+          </article>
+          <article className="summary-card">
+            <p>Ingresos mensuales</p>
+            <strong>{formatCurrency(monthlyIncome)}</strong>
+          </article>
+          <article className="summary-card negative">
+            <p>Egresos mensuales</p>
+            <strong>{formatCurrency(monthlyExpense)}</strong>
+          </article>
+        </div>
       </section>
 
       <section className="section credit-layout management-layout recurring-layout">
@@ -166,7 +203,7 @@ export default function RecurringPage({ recurringRules, monthlyRecords, addRecur
         </div>
         <div className="credit-list-card">
           <div className="credit-list-header">
-            <h3>Repeticiones configuradas</h3>
+            <h3>Repeticiones activas</h3>
             <span className="pill">{activeRules.length} activas</span>
           </div>
           {activeRules.length === 0 ? (
@@ -174,7 +211,7 @@ export default function RecurringPage({ recurringRules, monthlyRecords, addRecur
           ) : (
             <div className="credit-list">
               {activeRules.map((rule) => (
-                <RecurringRuleCard key={rule.id} rule={rule} history={{ months: 0, total: 0 }} onEdit={setEditingRule} onClose={setClosingRule} />
+                <RecurringRuleCard key={rule.id} rule={rule} history={summarizeRecurringHistory(rule, monthlyRecords)} onEdit={setEditingRule} onDelete={setClosingRule} />
               ))}
             </div>
           )}
@@ -191,7 +228,7 @@ export default function RecurringPage({ recurringRules, monthlyRecords, addRecur
                     rule={rule}
                     history={summarizeRecurringHistory(rule, monthlyRecords)}
                     onEdit={setEditingRule}
-                    onClose={setClosingRule}
+                    onDelete={setClosingRule}
                   />
                 ))}
               </div>
@@ -202,9 +239,9 @@ export default function RecurringPage({ recurringRules, monthlyRecords, addRecur
 
       {closingRule && (
         <div className="modal-backdrop" role="presentation">
-          <section className="decision-modal" role="dialog" aria-modal="true" aria-labelledby="close-recurring-title">
-            <h2 id="close-recurring-title">Cerrar repetición</h2>
-            <p>Vas a finalizar “{closingRule.description}”. ¿A este mes se le cuenta el pago?</p>
+          <section className="decision-modal" role="dialog" aria-modal="true" aria-labelledby="delete-recurring-title">
+            <h2 id="delete-recurring-title">Eliminar repetición</h2>
+            <p>Vas a eliminar “{closingRule.description}”. ¿También se elimina su movimiento de {getMonthLabel(currentMonthKey)}? Los meses siguientes se eliminan siempre.</p>
             <div className="form-actions">
               <button type="button" className="primary" onClick={() => handleClose(true)}>Sí</button>
               <button type="button" className="ghost-button" onClick={() => handleClose(false)}>No</button>

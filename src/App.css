@@ -427,7 +427,7 @@ h1 {
 
 .credit-section .management-layout,
 .recurring-layout {
-  grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.15fr);
+  grid-template-columns: minmax(300px, 0.75fr) minmax(0, 1.25fr);
 }
 
 .credit-list-panel .credit-list-card {
@@ -528,6 +528,33 @@ h1 {
 .credit-form-submit {
   grid-column: 1 / -1;
   justify-self: start;
+}
+
+.recurring-layout .transaction-form {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
+.recurring-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.65fr) minmax(0, 1.35fr);
+  column-gap: 12px;
+}
+
+.recurring-form-grid .full-width {
+  grid-column: 1 / -1;
+}
+
+.recurring-form-grid .form-actions {
+  margin-top: 0;
+}
+
+.recurring-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .credit-form input,
@@ -747,6 +774,48 @@ h1 {
 
 .credit-card:last-child {
   margin-bottom: 0;
+}
+
+.recurring-rule-card {
+  display: block;
+}
+
+.recurring-card-header,
+.recurring-card-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px 16px;
+}
+
+.recurring-card-header {
+  margin-bottom: 10px;
+}
+
+.recurring-card-header .credit-name,
+.recurring-card-header .credit-value {
+  margin: 0;
+}
+
+.recurring-card-header .credit-value,
+.recurring-card-row > :nth-child(even) {
+  text-align: right;
+}
+
+.recurring-card-row {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.recurring-card-footer {
+  align-items: center;
+  color: var(--text);
+}
+
+.recurring-action-buttons {
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .credit-information {
@@ -1059,6 +1128,14 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .recurring-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recurring-form-grid .full-width {
+    grid-column: auto;
+  }
+
   .credit-form-submit {
     grid-column: auto;
   }
@@ -1071,6 +1148,10 @@ button:disabled {
 @media (max-width: 900px) {
   .credit-section .management-layout,
   .recurring-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .recurring-summary-grid {
     grid-template-columns: 1fr;
   }
 

@@ -7,6 +7,7 @@ import {
   addCreditExtraExpense as addCreditExtraExpenseToBudget,
   applyMonthlyTransactions as applyScheduledTransactions,
   closeRecurringRule as closeRecurringRuleState,
+  updateRecurringRule as updateRecurringRuleState,
 } from '../utils/monthlyRecords'
 import useCurrentMonthKey from './useCurrentMonthKey'
 
@@ -410,11 +411,8 @@ export default function useBudgetData() {
     setBudget((prev) => ({ ...prev, recurringRules: [newRule, ...(prev.recurringRules || [])] }))
   }
 
-  function updateRecurringRule(rule) {
-    setBudget((prev) => ({
-      ...prev,
-      recurringRules: (prev.recurringRules || []).map((item) => item.id === rule.id ? rule : item),
-    }))
+  function updateRecurringRule(rule, applyToCurrentMonth) {
+    setBudget((prev) => updateRecurringRuleState(prev, rule, currentMonthKey, applyToCurrentMonth))
   }
 
   function closeRecurringRule(ruleId, includeCurrentMonth) {

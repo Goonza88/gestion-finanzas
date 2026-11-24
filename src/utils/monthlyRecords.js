@@ -215,6 +215,20 @@ export function closeRecurringRule(data, ruleId, currentMonthKey, includeCurrent
   }
   let next = includeCurrentMonth ? applyMonthlyTransactions(beforeClose, currentMonthKey) : beforeClose
   const monthlyRecords = { ...next.monthlyRecords }
+  for (const [monthKey, record] of Object.entries(monthlyRecords)) {
+    if (monthKey <= currentMonthKey) continue
+    const transactions = Array.isArray(record.transactions) ? record.transactions : []
+    const appliedRecurringIds = Array.isArray(record.appliedRecurringIds) ? record.appliedRecurringIds : []
+    const filteredTransactions = transactions.filter((transaction) => transaction.sourceRecurringId !== ruleId)
+    const filteredAppliedIds = appliedRecurringIds.filter((id) => id !== ruleId)
+    if (filteredTransactions.length !== transactions.length || filteredAppliedIds.length !== appliedRecurringIds.length) {
+      monthlyRecords[monthKey] = {
+        ...record,
+        transactions: filteredTransactions,
+        appliedRecurringIds: filteredAppliedIds,
+      }
+    }
+  }
   const currentRecord = monthlyRecords[currentMonthKey]
   if (currentRecord) {
     const currentTransactions = Array.isArray(currentRecord.transactions) ? currentRecord.transactions : []
@@ -228,14 +242,79 @@ export function closeRecurringRule(data, ruleId, currentMonthKey, includeCurrent
       appliedRecurringIds.delete(ruleId)
     }
     monthlyRecords[currentMonthKey] = { ...currentRecord, transactions, appliedRecurringIds: [...appliedRecurringIds] }
-    next = { ...next, monthlyRecords }
   }
+  next = { ...next, monthlyRecords }
 
   return {
     ...next,
     recurringRules: next.recurringRules.map((item) => item.id === ruleId
       ? { ...item, active: false, endMonth, closedAtMonth: currentMonthKey, countedCurrentMonth: includeCurrentMonth }
       : item),
+  }
+}
+
+export function updateRecurringRule(data, rule, currentMonthKey, applyToCurrentMonth) {
+  const monthlyRecords = { ...(data.monthlyRecords || {}) }
+  let changed = false
+
+  for (const [monthKey, record] of Object.entries(monthlyRecords)) {
+    if (monthKey < currentMonthKey || (monthKey === currentMonthKey && !applyToCurrentMonth)) continue
+    const transactions = Array.isArray(record.transactions) ? record.transactions : []
+    const ruleApplies = rule.active !== false && rule.startMonth <= monthKey && (!rule.endMonth || monthKey <= rule.endMonth)
+    const hasMatchingTransaction = transactions.some((transaction) => transaction.sourceRecurringId === rule.id)
+    const nextTransactions = ruleApplies && hasMatchingTransaction
+      ? transactions.map((transaction) => transaction.sourceRecurringId === rule.id
+        ? { ...transaction, type: rule.type, description: rule.description, amount: Number(rule.amount) }
+        : transaction)
+      : !ruleApplies && hasMatchingTransaction
+        ? transactions.filter((transaction) => transaction.sourceRecurringId !== rule.id)
+        : transactions
+    const appliedRecurringIds = Array.isArray(record.appliedRecurringIds) ? record.appliedRecurringIds : []
+    const hasAppliedId = appliedRecurringIds.includes(rule.id)
+    const nextAppliedRecurringIds = ruleApplies
+      ? hasMatchingTransaction && !hasAppliedId
+        ? [...appliedRecurringIds, rule.id]
+        : appliedRecurringIds
+      : hasAppliedId
+        ? appliedRecurringIds.filter((id) => id !== rule.id)
+        : appliedRecurringIds
+
+    if (nextTransactions !== transactions || nextAppliedRecurringIds !== appliedRecurringIds) {
+      monthlyRecords[monthKey] = {
+        ...record,
+        transactions: nextTransactions,
+        appliedRecurringIds: nextAppliedRecurringIds,
+      }
+      changed = true
+    }
+  }
+
+  const ruleAppliesThisMonth = rule.active !== false && rule.startMonth <= currentMonthKey && (!rule.endMonth || currentMonthKey <= rule.endMonth)
+  if (ruleAppliesThisMonth && !applyToCurrentMonth) {
+    const currentRecord = monthlyRecords[currentMonthKey] || { transactions: [] }
+    const appliedRecurringIds = Array.isArray(currentRecord.appliedRecurringIds) ? currentRecord.appliedRecurringIds : []
+    if (!appliedRecurringIds.includes(rule.id)) {
+      monthlyRecords[currentMonthKey] = { ...currentRecord, appliedRecurringIds: [...appliedRecurringIds, rule.id] }
+      changed = true
+    }
+  } else if (ruleAppliesThisMonth && applyToCurrentMonth) {
+    const currentRecord = monthlyRecords[currentMonthKey]
+    const transactions = Array.isArray(currentRecord?.transactions) ? currentRecord.transactions : []
+    const hasMatchingTransaction = transactions.some((transaction) => transaction.sourceRecurringId === rule.id)
+    const appliedRecurringIds = Array.isArray(currentRecord?.appliedRecurringIds) ? currentRecord.appliedRecurringIds : []
+    if (!hasMatchingTransaction && appliedRecurringIds.includes(rule.id)) {
+      monthlyRecords[currentMonthKey] = {
+        ...currentRecord,
+        appliedRecurringIds: appliedRecurringIds.filter((id) => id !== rule.id),
+      }
+      changed = true
+    }
+  }
+
+  return {
+    ...data,
+    recurringRules: (data.recurringRules || []).map((item) => item.id === rule.id ? rule : item),
+    ...(changed ? { monthlyRecords } : {}),
   }
 }
 
