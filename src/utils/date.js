@@ -30,7 +30,16 @@ export function getMonthKeyFromDate(date) {
   if (isoMatch) {
     const y = Number(isoMatch[1])
     const m = Number(isoMatch[2])
-    // day not needed for month key
+    const day = Number(isoMatch[3])
+    const parsed = new Date(0)
+    parsed.setFullYear(y, m - 1, day)
+    if (
+      y < 1900 ||
+      m < 1 || m > 12 ||
+      parsed.getFullYear() !== y ||
+      parsed.getMonth() !== m - 1 ||
+      parsed.getDate() !== day
+    ) return ''
     return `${y}-${String(m).padStart(2, '0')}`
   }
   const parsed = new Date(date)

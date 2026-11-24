@@ -13,7 +13,7 @@ export default function CreditForm({ onAdd }) {
     const price = Number(totalPrice)
     const quota = Number(installments)
     if (!name.trim() || !Number.isInteger(price) || price <= 0 || (duration === 'fixed' && (!Number.isInteger(quota) || quota <= 0 || quota > price))) {
-      alert('Complete el nombre y los importes requeridos.')
+      alert('Complete el nombre y los importes. La cantidad de cuotas no puede superar el precio en pesos enteros.')
       return
     }
 

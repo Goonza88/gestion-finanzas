@@ -1,9 +1,10 @@
-import { useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { useRef, useState } from 'react'
 import { getCurrentDateISO } from '../utils/date'
+import BackupManager from './BackupManager'
 
 export default function Header({ theme, onToggleTheme, onExportBackup, onImportBackup }) {
   const backupFileRef = useRef(null)
+  const [backupManagerOpen, setBackupManagerOpen] = useState(false)
 
   function handleExportBackup() {
     const blob = new Blob([onExportBackup()], { type: 'application/json' })
@@ -22,7 +23,7 @@ export default function Header({ theme, onToggleTheme, onExportBackup, onImportB
     try {
       const contents = await file.text()
       if (!window.confirm('Importar este respaldo reemplazará los datos actuales. ¿Continuar?')) return
-      onImportBackup(contents)
+      await onImportBackup(contents)
       window.alert('Respaldo importado correctamente.')
     } catch (error) {
       window.alert(error.message || 'No se pudo importar el respaldo.')
@@ -32,29 +33,34 @@ export default function Header({ theme, onToggleTheme, onExportBackup, onImportB
   }
 
   return (
-    <header className="header">
-      <div className="header-inner">
-        <h1>Gestión financiera</h1>
-        <div className="header-actions">
-          <Link className="ghost-button small" to="/repeticiones">Repeticiones</Link>
-          <button className="ghost-button small" type="button" onClick={handleExportBackup}>
-            Exportar respaldo
-          </button>
-          <button className="ghost-button small" type="button" onClick={() => backupFileRef.current?.click()}>
-            Importar respaldo
-          </button>
-          <input
-            ref={backupFileRef}
-            type="file"
-            accept="application/json,.json"
-            onChange={handleImportBackup}
-            hidden
-          />
-          <button className="ghost-button theme-toggle" onClick={onToggleTheme}>
-            {theme === 'dark' ? 'Claro' : 'Oscuro'}
-          </button>
+    <>
+      <header className="header">
+        <div className="header-inner">
+          <h1>Gestión financiera</h1>
+          <div className="header-actions">
+            <button className="ghost-button small" type="button" onClick={handleExportBackup}>
+              Exportar respaldo
+            </button>
+            <button className="ghost-button small" type="button" onClick={() => setBackupManagerOpen(true)}>
+              Copias locales
+            </button>
+            <button className="ghost-button small" type="button" onClick={() => backupFileRef.current?.click()}>
+              Importar respaldo
+            </button>
+            <input
+              ref={backupFileRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={handleImportBackup}
+              hidden
+            />
+            <button className="ghost-button theme-toggle" onClick={onToggleTheme}>
+              {theme === 'dark' ? 'Claro' : 'Oscuro'}
+            </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+      <BackupManager open={backupManagerOpen} onClose={() => setBackupManagerOpen(false)} onRestore={onImportBackup} />
+    </>
   )
 }

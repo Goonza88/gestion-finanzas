@@ -13,7 +13,7 @@ export default function MonthCard({ month }) {
         </div>
         <div>
           <p>Egresos</p>
-          <strong>{formatCurrency(month.expense + month.creditCommitment)}</strong>
+          <strong>{formatCurrency(month.expense)}</strong>
         </div>
       </div>
       <div className="month-balance">

@@ -3,19 +3,19 @@
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 16px;
   line-height: 1.5;
-  color: #1f2937;
-  background: #f4f7fb;
-  --bg: #f4f7fb;
-  --surface: #ffffff;
-  --surface-strong: #f8fbff;
-  --border: #d6e1ec;
-  --shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
-  --text: #1f2937;
-  --muted: #545f7d;
-  --accent: #2563eb;
-  --accent-soft: #eff6ff;
-  --positive: #16a34a;
-  --negative: #dc2626;
+  color: #373a35;
+  background: #f2f0eb;
+  --bg: #f2f0eb;
+  --surface: #faf9f6;
+  --surface-strong: #f4f2ed;
+  --border: #e2ded5;
+  --shadow: 0 14px 36px rgba(61, 55, 43, 0.065);
+  --text: #373a35;
+  --muted: #70746d;
+  --accent: #557493;
+  --accent-soft: #e9eef2;
+  --positive: #37805a;
+  --negative: #b85f57;
   --card-radius: 24px;
 }
 
@@ -47,7 +47,7 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at top, rgba(37, 99, 235, 0.1), transparent 28%),
+  background: radial-gradient(circle at top, rgba(138, 129, 104, 0.07), transparent 30%),
     var(--bg);
   color: var(--text);
 }

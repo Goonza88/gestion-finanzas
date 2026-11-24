@@ -1,9 +1,8 @@
-import { Link } from 'react-router-dom'
 import { formatCurrency } from '../utils/format'
 import CreditForm from '../components/CreditForm'
 import CreditList from '../components/CreditList'
 
-export default function CreditsPage({ activeCredits, creditMonthlyCommitmentThisMonth, addCredit, removeCredit, updateCreditPayment }) {
+export default function CreditsPage({ activeCredits, creditMonthlyCommitmentThisMonth, addCredit, removeCredit, updateCreditPayment, addCreditExtraExpense }) {
   return (
     <div className="page dashboard-page">
       <section className="section hero-card">
@@ -12,12 +11,9 @@ export default function CreditsPage({ activeCredits, creditMonthlyCommitmentThis
             <p className="eyebrow">Gestión de cuotas</p>
             <h1>Créditos y compromisos</h1>
           </div>
-          <Link to="/" className="ghost-button small">
-            Volver al panel
-          </Link>
         </div>
 
-        <div className="card-grid summary-grid">
+        <div className="card-grid summary-grid credit-summary-grid">
           <article className="summary-card">
             <p>Cuotas activas</p>
             <strong>{activeCredits.length}</strong>
@@ -30,20 +26,12 @@ export default function CreditsPage({ activeCredits, creditMonthlyCommitmentThis
       </section>
 
       <section className="section credit-section">
-        <div className="section-title">
-          <div>
-            <p className="eyebrow">Agregar nueva cuota</p>
-            <h2>Registrar un compromiso recurrente</h2>
-          </div>
-          <p className="section-helper">Los compromisos se suman automáticamente a los egresos mensuales.</p>
-        </div>
-
-        <div className="credit-layout">
+        <div className="credit-layout management-layout">
           <div className="credit-panel">
             <CreditForm onAdd={addCredit} />
           </div>
           <div className="credit-panel credit-list-panel">
-            <CreditList credits={activeCredits} onDelete={removeCredit} onChangePayment={updateCreditPayment} />
+            <CreditList credits={activeCredits} onDelete={removeCredit} onChangePayment={updateCreditPayment} onAddExtraExpense={addCreditExtraExpense} />
           </div>
         </div>
       </section>

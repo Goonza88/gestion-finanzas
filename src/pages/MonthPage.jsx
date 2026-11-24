@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { formatCurrency } from '../utils/format'
 import { getCurrentDateISO, getMonthLabel, getMonthKeyFromDate } from '../utils/date'
-import { getCreditMonthlyPayment, isCreditActiveInMonth } from '../utils/credit'
 import MonthTransactionForm from '../components/MonthTransactionForm'
 import TransactionTable from '../components/TransactionTable'
 
@@ -11,8 +10,8 @@ export default function MonthPage({
   addTransaction,
   updateTransaction,
   removeTransaction,
-  creditDetails,
-  applyRecurringTransactions,
+  recurringRules,
+  applyMonthlyTransactions,
 }) {
   const { monthKey } = useParams()
   const monthData = getMonthRecord(monthKey)
@@ -25,9 +24,9 @@ export default function MonthPage({
   const expense = transactions
     .filter((tx) => tx.type === 'expense')
     .reduce((sum, tx) => sum + Number(tx.amount || 0), 0)
-  const monthCredits = creditDetails.filter((credit) => isCreditActiveInMonth(credit, monthKey))
-  const creditCommitment = monthCredits.reduce((sum, credit) => sum + getCreditMonthlyPayment(credit, monthKey), 0)
-  const totalExpense = expense + creditCommitment
+  const monthCreditPayments = transactions.filter((transaction) => transaction.isCreditInstallment)
+  const creditCommitment = monthCreditPayments.reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0)
+  const totalExpense = expense
   const balance = income - totalExpense
 
   const defaultDateValue = (() => {
@@ -39,12 +38,16 @@ export default function MonthPage({
   const [editingTransaction, setEditingTransaction] = useState(null)
 
   useEffect(() => {
-    applyRecurringTransactions(monthKey)
-  }, [applyRecurringTransactions, monthKey])
+    applyMonthlyTransactions(monthKey)
+  }, [applyMonthlyTransactions, monthKey, recurringRules])
 
   function handleSave(transaction) {
     const actualKey = getMonthKeyFromDate(transaction.date)
-    if (transaction.id) {
+    if (!actualKey) {
+      window.alert('La fecha del movimiento no es válida.')
+      return
+    }
+    if (transaction.id !== undefined && transaction.id !== null) {
       if (actualKey === monthKey) {
         updateTransaction(monthKey, transaction)
       } else {
@@ -104,12 +107,12 @@ export default function MonthPage({
             onCancel={handleCancelEdit}
           />
           <aside className="month-note-card">
-            <p className="eyebrow">Cuotas activas este mes</p>
+            <p className="eyebrow">Cuotas registradas este mes</p>
             <strong>{formatCurrency(creditCommitment)}</strong>
             <p className="small-text">
-              {monthCredits.length === 0
+              {monthCreditPayments.length === 0
                 ? 'No hay pagos de cuotas en este mes.'
-                : `Incluye ${monthCredits.length} crédito(s).`}
+                : `Incluye ${monthCreditPayments.length} pago(s) de cuotas.`}
             </p>
           </aside>
         </div>

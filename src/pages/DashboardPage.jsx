@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { formatCurrency } from '../utils/format'
-import { getCurrentMonthKey, getMonthLabel } from '../utils/date'
+import { getMonthLabel } from '../utils/date'
+import useCurrentMonthKey from '../hooks/useCurrentMonthKey'
 import MonthCard from '../components/MonthCard'
 
 export default function DashboardPage({
@@ -11,16 +12,17 @@ export default function DashboardPage({
   activeCredits,
   creditMonthlyCommitmentThisMonth,
   changeYear,
-  applyRecurringTransactions,
+  recurringRules,
+  applyMonthlyTransactions,
 }) {
-  const currentKey = getCurrentMonthKey()
+  const currentKey = useCurrentMonthKey()
   const currentMonth = String(year) === currentKey.slice(0, 4)
     ? monthSummaries.find((month) => month.monthKey === currentKey)
     : null
 
   useEffect(() => {
-    if (String(year) === currentKey.slice(0, 4)) applyRecurringTransactions(currentKey)
-  }, [applyRecurringTransactions, currentKey, year])
+    if (String(year) === currentKey.slice(0, 4)) applyMonthlyTransactions(currentKey)
+  }, [applyMonthlyTransactions, currentKey, recurringRules, year])
 
   return (
     <div className="page dashboard-page">

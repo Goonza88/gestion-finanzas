@@ -24,6 +24,7 @@ export default function MonthTransactionForm({ defaultDate, transactionToEdit, o
     }
 
     onSave({
+      ...(transactionToEdit || {}),
       id: transactionToEdit?.id,
       type,
       description: description.trim(),

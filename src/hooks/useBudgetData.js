@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { invoke, isTauri } from '@tauri-apps/api/core'
 import { getCurrentMonthKey, getMonthKeyFromDate, getMonthLabel, getMonthSequence } from '../utils/date'
 import { getCreditMonthlyPayment, isOngoingCredit } from '../utils/credit'
+import {
+  addCreditExtraExpense as addCreditExtraExpenseToBudget,
+  applyMonthlyTransactions as applyScheduledTransactions,
+  closeRecurringRule as closeRecurringRuleState,
+} from '../utils/monthlyRecords'
+import useCurrentMonthKey from './useCurrentMonthKey'
 
 const STORAGE_KEY = 'gestion_financiera_personal_v1'
 const currentYear = new Date().getFullYear()
@@ -35,60 +42,112 @@ function loadBudget() {
 function saveBudget(data) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    return true
   } catch (error) {
     console.error('Error guardando datos:', error)
+    return false
   }
+}
+
+function isValidId(id) {
+  return (typeof id === 'string' && id.trim().length > 0) || (Number.isSafeInteger(id) && id > 0)
+}
+
+function hasUniqueIds(items) {
+  const ids = new Set()
+  return items.every((item) => {
+    if (!item || !isValidId(item.id)) return false
+    const key = `${typeof item.id}:${item.id}`
+    if (ids.has(key)) return false
+    ids.add(key)
+    return true
+  })
+}
+
+function createTransactionId(monthlyRecords, additionalTransactions = []) {
+  const usedIds = new Set([...Object.values(monthlyRecords).flatMap((record) => (
+    Array.isArray(record?.transactions) ? record.transactions.map((transaction) => transaction.id) : []
+  )), ...additionalTransactions.map((transaction) => transaction.id)])
+  let id = Date.now()
+  while (usedIds.has(id)) id += 1
+  return id
+}
+
+function createBackupTimestamp() {
+  const date = new Date()
+  const pad = (value, length = 2) => String(value).padStart(length, '0')
+  return `gestion-financiera-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}-${pad(date.getMilliseconds(), 3)}`
 }
 
 function isValidBackupData(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return false
   if (!Number.isInteger(data.year) || data.year < 1900 || data.year > 9999 || !data.monthlyRecords || typeof data.monthlyRecords !== 'object' || Array.isArray(data.monthlyRecords)) return false
-  if (!Array.isArray(data.credits) || !data.credits.every((credit) => (
+  if (!Array.isArray(data.credits) || !hasUniqueIds(data.credits) || !data.credits.every((credit) => (
     credit &&
     typeof credit === 'object' &&
     !Array.isArray(credit) &&
-    (typeof credit.id === 'string' || Number.isFinite(credit.id)) &&
     typeof credit.name === 'string' &&
     typeof credit.startDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(credit.startDate) &&
+    Boolean(getMonthKeyFromDate(credit.startDate)) &&
     (credit.paymentChanges === undefined || (Array.isArray(credit.paymentChanges) && credit.paymentChanges.every((change) => (
       change &&
       /^\d{4}-(0[1-9]|1[0-2])$/.test(change.effectiveMonth) &&
-      Number.isFinite(Number(change.monthlyPayment)) &&
+      Number.isSafeInteger(Number(change.monthlyPayment)) &&
       Number(change.monthlyPayment) > 0
     )))) &&
     (credit.duration === 'ongoing'
-      ? Number.isFinite(Number(credit.monthlyPayment)) && Number(credit.monthlyPayment) > 0
-      : Number.isFinite(Number(credit.totalPrice)) && Number(credit.totalPrice) > 0 && Number.isInteger(Number(credit.installments)) && Number(credit.installments) > 0)
+      ? Number.isSafeInteger(Number(credit.monthlyPayment)) && Number(credit.monthlyPayment) > 0
+      : Number.isSafeInteger(Number(credit.totalPrice)) && Number(credit.totalPrice) > 0 && Number.isSafeInteger(Number(credit.installments)) && Number(credit.installments) > 0)
   ))) return false
-  if (data.recurringRules !== undefined && (!Array.isArray(data.recurringRules) || !data.recurringRules.every((rule) => (
+  if (data.recurringRules !== undefined && (!Array.isArray(data.recurringRules) || !hasUniqueIds(data.recurringRules) || !data.recurringRules.every((rule) => (
     rule &&
     typeof rule === 'object' &&
     (rule.type === 'income' || rule.type === 'expense') &&
     typeof rule.description === 'string' &&
-    Number.isFinite(Number(rule.amount)) &&
+    Number.isSafeInteger(Number(rule.amount)) &&
     Number(rule.amount) > 0 &&
     Number.isInteger(Number(rule.dayOfMonth)) &&
+    Number(rule.dayOfMonth) >= 1 && Number(rule.dayOfMonth) <= 31 &&
     /^\d{4}-(0[1-9]|1[0-2])$/.test(rule.startMonth) &&
     (!rule.endMonth || /^\d{4}-(0[1-9]|1[0-2])$/.test(rule.endMonth)) &&
-    (typeof rule.id === 'string' || Number.isFinite(rule.id))
+    (rule.active === undefined || typeof rule.active === 'boolean') &&
+    (rule.active === false || !rule.endMonth || rule.endMonth >= rule.startMonth)
   )))) return false
 
-  return Object.entries(data.monthlyRecords).every(([monthKey, record]) => (
+  const recordsAreValid = Object.entries(data.monthlyRecords).every(([monthKey, record]) => (
     /^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey) &&
     record &&
     typeof record === 'object' &&
     Array.isArray(record.transactions) &&
+    (record.appliedRecurringIds === undefined || (
+      Array.isArray(record.appliedRecurringIds) &&
+      record.appliedRecurringIds.every(isValidId) &&
+      new Set(record.appliedRecurringIds.map((id) => `${typeof id}:${id}`)).size === record.appliedRecurringIds.length
+    )) &&
     record.transactions.every((transaction) => (
       transaction &&
       typeof transaction === 'object' &&
-      (typeof transaction.id === 'string' || Number.isFinite(transaction.id)) &&
+      isValidId(transaction.id) &&
       (transaction.type === 'income' || transaction.type === 'expense') &&
       typeof transaction.description === 'string' &&
-      Number.isFinite(Number(transaction.amount)) &&
+      Number.isSafeInteger(Number(transaction.amount)) &&
       Number(transaction.amount) > 0 &&
-      typeof transaction.date === 'string'
+      typeof transaction.date === 'string' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(transaction.date) &&
+      getMonthKeyFromDate(transaction.date) === monthKey
     ))
-  )) && data.credits.every((credit) => credit && typeof credit === 'object' && !Array.isArray(credit))
+  ))
+  if (!recordsAreValid) return false
+  const transactionIds = new Set()
+  for (const record of Object.values(data.monthlyRecords)) {
+    for (const transaction of record.transactions) {
+      const key = `${typeof transaction.id}:${transaction.id}`
+      if (transactionIds.has(key)) return false
+      transactionIds.add(key)
+    }
+  }
+  return true
 }
 
 function monthCreditCommitment(credit, monthKey) {
@@ -98,9 +157,29 @@ function monthCreditCommitment(credit, monthKey) {
 
 export default function useBudgetData() {
   const [budget, setBudget] = useState(() => loadBudget())
+  const currentMonthKey = useCurrentMonthKey()
+  const saveFailureAlerted = useRef(false)
+  const startupBackupStarted = useRef(false)
 
   useEffect(() => {
-    saveBudget(budget)
+    if (!isTauri() || startupBackupStarted.current) return
+    startupBackupStarted.current = true
+    const currentData = localStorage.getItem(STORAGE_KEY)
+    if (!currentData) return
+    invoke('create_local_backup', { contents: currentData, timestamp: createBackupTimestamp() }).catch((error) => {
+      console.error('No se pudo crear la copia local de inicio:', error)
+      window.alert('No se pudo crear la copia local de seguridad al iniciar. Los datos actuales siguen en la aplicación.')
+    })
+  }, [])
+
+  useEffect(() => {
+    const saved = saveBudget(budget)
+    if (!saved && !saveFailureAlerted.current) {
+      saveFailureAlerted.current = true
+      window.alert('No se pudieron guardar los cambios en este equipo. Exportá un respaldo antes de cerrar la aplicación.')
+    } else if (saved) {
+      saveFailureAlerted.current = false
+    }
   }, [budget])
 
   const creditDetails = useMemo(() => {
@@ -123,7 +202,7 @@ export default function useBudgetData() {
         const endYear = year + Math.floor((endIndex - 1) / 12)
         const endMonth = ((endIndex - 1) % 12) + 1
         endKey = `${endYear}-${String(endMonth).padStart(2, '0')}`
-        const currentKey = getCurrentMonthKey()
+        const currentKey = currentMonthKey
         const elapsed = currentKey < startKey
           ? 0
           : Math.min(installments, Math.max(0,
@@ -131,10 +210,7 @@ export default function useBudgetData() {
               (Number(currentKey.slice(5)) - month) + 1,
             ))
         remainingInstallments = Math.max(0, installments - elapsed)
-        const finalPayment = Math.max(0, amount - baseMonthlyPayment * (installments - 1))
-        totalRemaining = remainingInstallments > 0
-          ? baseMonthlyPayment * (remainingInstallments - 1) + finalPayment
-          : 0
+        totalRemaining = amount - Math.floor(amount * elapsed / installments)
       }
       const monthlyPayment = getCreditMonthlyPayment({
         ...credit,
@@ -142,8 +218,9 @@ export default function useBudgetData() {
         amount,
         installments,
         baseMonthlyPayment,
+        startKey,
         endKey,
-      }, getCurrentMonthKey())
+      }, currentMonthKey)
       return {
         ...credit,
         duration,
@@ -157,7 +234,7 @@ export default function useBudgetData() {
         totalRemaining,
       }
     })
-  }, [budget.credits])
+  }, [budget.credits, currentMonthKey])
 
   const monthSummaries = useMemo(() => {
     const months = getMonthSequence(budget.year)
@@ -170,11 +247,10 @@ export default function useBudgetData() {
       const expense = transactions
         .filter((tx) => tx.type === 'expense')
         .reduce((sum, tx) => sum + Number(tx.amount || 0), 0)
-      const creditCommitment = creditDetails.reduce(
-        (sum, credit) => sum + monthCreditCommitment(credit, monthKey),
-        0,
-      )
-      const totalExpense = expense + creditCommitment
+      const creditCommitment = transactions
+        .filter((tx) => tx.isCreditInstallment)
+        .reduce((sum, tx) => sum + Number(tx.amount || 0), 0)
+      const totalExpense = expense
       return {
         monthKey,
         label: getMonthLabel(monthKey),
@@ -185,11 +261,11 @@ export default function useBudgetData() {
         transactionCount: transactions.length,
       }
     })
-  }, [budget.monthlyRecords, budget.year, creditDetails])
+  }, [budget.monthlyRecords, budget.year])
 
   const annualTotals = useMemo(() => {
     const income = monthSummaries.reduce((sum, month) => sum + month.income, 0)
-    const expense = monthSummaries.reduce((sum, month) => sum + month.expense + month.creditCommitment, 0)
+    const expense = monthSummaries.reduce((sum, month) => sum + month.expense, 0)
     return {
       income,
       expense,
@@ -198,22 +274,32 @@ export default function useBudgetData() {
   }, [monthSummaries])
 
   const activeCredits = useMemo(() => {
-    const currentMonth = getCurrentMonthKey()
+    const currentMonth = currentMonthKey
     return creditDetails.filter((credit) => (
       credit.duration === 'ongoing'
         ? credit.startKey <= currentMonth
-        : credit.remainingInstallments > 0
+        : credit.startKey <= currentMonth && credit.remainingInstallments > 0
     ))
-  }, [creditDetails])
+  }, [creditDetails, currentMonthKey])
 
   const creditMonthlyCommitmentThisMonth = useMemo(() => {
-    const currentKey = getCurrentMonthKey()
+    const currentKey = currentMonthKey
     return creditDetails.reduce((sum, credit) => sum + monthCreditCommitment(credit, currentKey), 0)
-  }, [creditDetails])
+  }, [creditDetails, currentMonthKey])
 
   function addTransaction(transaction) {
     const monthKey = getMonthKeyFromDate(transaction.date)
     setBudget((prev) => {
+      const usedIds = new Set(Object.values(prev.monthlyRecords).flatMap((record) => (
+        Array.isArray(record?.transactions) ? record.transactions.map((item) => item.id) : []
+      )))
+      const requestedId = transaction.id
+      const newTransaction = {
+        ...transaction,
+        id: requestedId !== undefined && requestedId !== null && !usedIds.has(requestedId)
+          ? requestedId
+          : createTransactionId(prev.monthlyRecords),
+      }
       const existing = prev.monthlyRecords[monthKey] || { transactions: [] }
       return {
         ...prev,
@@ -221,9 +307,9 @@ export default function useBudgetData() {
           ...prev.monthlyRecords,
           [monthKey]: {
             ...existing,
-            transactions: [transaction, ...existing.transactions],
-            appliedRecurringIds: transaction.sourceRecurringId
-              ? [...new Set([...(existing.appliedRecurringIds || []), transaction.sourceRecurringId])]
+            transactions: [newTransaction, ...existing.transactions],
+            appliedRecurringIds: newTransaction.sourceRecurringId
+              ? [...new Set([...(Array.isArray(existing.appliedRecurringIds) ? existing.appliedRecurringIds : []), newTransaction.sourceRecurringId])]
               : existing.appliedRecurringIds,
           },
         },
@@ -288,9 +374,8 @@ export default function useBudgetData() {
 
   function updateCreditPayment(creditId, monthlyPayment) {
     const effectiveMonth = getCurrentMonthKey()
-    setBudget((prev) => ({
-      ...prev,
-      credits: prev.credits.map((credit) => {
+    setBudget((prev) => {
+      const credits = prev.credits.map((credit) => {
         if (credit.id !== creditId) return credit
         const paymentChanges = [...(credit.paymentChanges || [])]
         const existingIndex = paymentChanges.findIndex((change) => change.effectiveMonth === effectiveMonth)
@@ -298,12 +383,29 @@ export default function useBudgetData() {
         if (existingIndex >= 0) paymentChanges[existingIndex] = change
         else paymentChanges.push(change)
         return { ...credit, paymentChanges }
-      }),
-    }))
+      })
+      const currentRecord = prev.monthlyRecords[effectiveMonth]
+      const monthlyRecords = currentRecord
+        ? {
+            ...prev.monthlyRecords,
+            [effectiveMonth]: {
+              ...currentRecord,
+              transactions: currentRecord.transactions.map((transaction) => (
+                transaction.sourceCreditId === creditId &&
+                transaction.sourceCreditMonth === effectiveMonth &&
+                transaction.isCreditInstallment
+                  ? { ...transaction, amount: monthlyPayment }
+                  : transaction
+              )),
+            },
+          }
+        : prev.monthlyRecords
+      return { ...prev, credits, monthlyRecords }
+    })
   }
 
   function addRecurringRule(rule) {
-    const newRule = { ...rule, id: Date.now() }
+    const newRule = { ...rule, id: Date.now(), active: true, dayOfMonth: 1, endMonth: '' }
     setBudget((prev) => ({ ...prev, recurringRules: [newRule, ...(prev.recurringRules || [])] }))
   }
 
@@ -314,54 +416,17 @@ export default function useBudgetData() {
     }))
   }
 
-  function removeRecurringRule(ruleId) {
-    setBudget((prev) => ({
-      ...prev,
-      recurringRules: (prev.recurringRules || []).filter((rule) => rule.id !== ruleId),
-    }))
+  function closeRecurringRule(ruleId, includeCurrentMonth) {
+    setBudget((prev) => closeRecurringRuleState(prev, ruleId, currentMonthKey, includeCurrentMonth))
   }
 
-  const applyRecurringTransactions = useCallback((monthKey) => {
-    setBudget((prev) => {
-      const existing = prev.monthlyRecords[monthKey] || { transactions: [] }
-      const appliedIds = new Set(existing.appliedRecurringIds || [])
-      const rulesToApply = (prev.recurringRules || []).filter((rule) => (
-        rule.startMonth <= monthKey &&
-        (!rule.endMonth || monthKey <= rule.endMonth) &&
-        !appliedIds.has(rule.id)
-      ))
-
-      if (rulesToApply.length === 0) return prev
-
-      const [year, month] = monthKey.split('-').map(Number)
-      const transactions = [...existing.transactions]
-      rulesToApply.forEach((rule) => {
-        const lastDay = new Date(year, month, 0).getDate()
-        const day = Math.min(Number(rule.dayOfMonth), lastDay)
-        transactions.unshift({
-          id: Date.now() + transactions.length,
-          type: rule.type,
-          description: rule.description,
-          amount: Number(rule.amount),
-          date: `${monthKey}-${String(day).padStart(2, '0')}`,
-          sourceRecurringId: rule.id,
-        })
-        appliedIds.add(rule.id)
-      })
-
-      return {
-        ...prev,
-        monthlyRecords: {
-          ...prev.monthlyRecords,
-          [monthKey]: {
-            ...existing,
-            transactions,
-            appliedRecurringIds: [...appliedIds],
-          },
-        },
-      }
-    })
+  const applyMonthlyTransactions = useCallback((monthKey) => {
+    setBudget((prev) => applyScheduledTransactions(prev, monthKey))
   }, [])
+
+  function addCreditExtraExpense(creditId, monthKey, amount) {
+    setBudget((prev) => addCreditExtraExpenseToBudget(prev, creditId, monthKey, amount))
+  }
 
   function removeCredit(creditId) {
     setBudget((prev) => ({
@@ -387,16 +452,27 @@ export default function useBudgetData() {
     }, null, 2)
   }
 
-  function importBackup(contents) {
-    const backup = JSON.parse(contents)
+  async function importBackup(contents) {
+    const parsed = JSON.parse(contents)
+    const backup = parsed?.schemaVersion === undefined ? { schemaVersion: 1, data: parsed } : parsed
     if (backup?.schemaVersion !== 1 || !isValidBackupData(backup.data)) {
       throw new Error('El archivo no tiene un respaldo válido de Gestión Financiera.')
     }
-    setBudget({ ...backup.data, recurringRules: backup.data.recurringRules || [] })
+    const restored = { ...backup.data, recurringRules: backup.data.recurringRules || [] }
+    const currentData = localStorage.getItem(STORAGE_KEY)
+    if (isTauri() && currentData) {
+      await invoke('create_local_backup', { contents: currentData, timestamp: createBackupTimestamp() })
+    }
+    if (!saveBudget(restored)) {
+      throw new Error('No se pudo guardar el respaldo en este equipo. Los datos actuales se conservaron.')
+    }
+    setBudget(restored)
   }
 
   return {
     year: budget.year,
+    monthlyRecords: budget.monthlyRecords,
+    credits: budget.credits,
     changeYear,
     exportBackup,
     importBackup,
@@ -412,10 +488,11 @@ export default function useBudgetData() {
     updateTransaction,
     addCredit,
     updateCreditPayment,
+    addCreditExtraExpense,
     addRecurringRule,
     updateRecurringRule,
-    removeRecurringRule,
-    applyRecurringTransactions,
+    closeRecurringRule,
+    applyMonthlyTransactions,
     removeCredit,
   }
 }
