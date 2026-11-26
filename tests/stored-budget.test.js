@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readStoredBudget } from '../src/utils/storedBudget.js'
+import { isValidBudgetData } from '../src/utils/budgetValidation.js'
 
 const key = 'budget'
 const createDefault = () => ({ year: 2026, monthlyRecords: {}, credits: [], recurringRules: [] })
@@ -72,4 +73,20 @@ test('inaccessible storage is marked for recovery instead of treated as empty', 
 
   assert.equal(result.status, 'unavailable')
   assert.deepEqual(result.data, createDefault())
+})
+
+test('malformed skipped-credit markers are rejected and preserved for recovery', () => {
+  const original = JSON.stringify({
+    year: 2026,
+    monthlyRecords: {
+      '2026-01': { transactions: [], skippedCreditInstallments: { creditId: 7 } },
+    },
+    credits: [],
+  })
+  const storage = createStorage(original)
+
+  const result = readStoredBudget(storage, key, createDefault, isValidBudgetData)
+
+  assert.equal(result.status, 'invalid')
+  assert.equal(storage.values.get(key), original)
 })

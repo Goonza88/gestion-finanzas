@@ -40,6 +40,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "windows": {
+      "wix": {
+        "upgradeCode": "41acc6db-e3d1-5c94-8686-67183fb5f1bb"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
