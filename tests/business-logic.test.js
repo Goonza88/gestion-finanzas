@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { getMonthKeyFromDate, getMonthLabel, getMonthSequence } from '../src/utils/date.js'
 import { getCreditMonthlyPayment, isCreditActiveInMonth, isOngoingCredit } from '../src/utils/credit.js'
-import { addCreditExtraExpense, applyMonthlyTransactions, closeRecurringRule, summarizeRecurringHistory } from '../src/utils/monthlyRecords.js'
+import { addCreditExtraExpense, applyMonthlyTransactions, closeRecurringRule, omitCreditInstallment, summarizeRecurringHistory } from '../src/utils/monthlyRecords.js'
 
 test('getMonthKeyFromDate keeps a valid ISO calendar date in its written month', () => {
   assert.equal(getMonthKeyFromDate('2024-02-29'), '2024-02')
@@ -85,6 +85,63 @@ test('monthly repetitions are stored once and do not duplicate when a month is r
   assert.deepEqual(secondVisit.monthlyRecords['2026-11'].appliedRecurringIds, [7])
 })
 
+test('monthly repetitions backfill every missing month through the requested month, but not later months', () => {
+  const budget = {
+    monthlyRecords: {},
+    credits: [],
+    recurringRules: [{ id: 7, active: true, type: 'expense', description: 'Alquiler', amount: 300, startMonth: '2026-08', dayOfMonth: 5 }],
+  }
+
+  const updated = applyMonthlyTransactions(budget, '2026-11')
+
+  assert.deepEqual(
+    ['2026-08', '2026-09', '2026-10', '2026-11'].map((month) => updated.monthlyRecords[month].transactions[0].date),
+    ['2026-08-05', '2026-09-05', '2026-10-05', '2026-11-05'],
+  )
+  assert.equal(updated.monthlyRecords['2026-12'], undefined)
+})
+
+test('catch-up respects skipped occurrences and does not recreate them', () => {
+  const budget = {
+    monthlyRecords: {
+      '2026-09': { transactions: [], appliedRecurringIds: [7] },
+    },
+    credits: [],
+    recurringRules: [{ id: 7, active: true, type: 'expense', description: 'Alquiler', amount: 300, startMonth: '2026-08' }],
+  }
+
+  const updated = applyMonthlyTransactions(budget, '2026-11')
+
+  assert.equal(updated.monthlyRecords['2026-09'].transactions.length, 0)
+  assert.deepEqual(updated.monthlyRecords['2026-09'].appliedRecurringIds, [7])
+  assert.equal(updated.monthlyRecords['2026-08'].transactions.length, 1)
+  assert.equal(updated.monthlyRecords['2026-10'].transactions.length, 1)
+  assert.equal(updated.monthlyRecords['2026-11'].transactions.length, 1)
+})
+
+test('closed repetitions backfill only through their end month', () => {
+  const budget = {
+    monthlyRecords: {},
+    credits: [],
+    recurringRules: [{
+      id: 7,
+      active: false,
+      type: 'expense',
+      description: 'Servicio',
+      amount: 300,
+      startMonth: '2026-08',
+      endMonth: '2026-10',
+    }],
+  }
+
+  const updated = applyMonthlyTransactions(budget, '2026-11')
+
+  assert.equal(updated.monthlyRecords['2026-08'].transactions.length, 1)
+  assert.equal(updated.monthlyRecords['2026-09'].transactions.length, 1)
+  assert.equal(updated.monthlyRecords['2026-10'].transactions.length, 1)
+  assert.equal(updated.monthlyRecords['2026-11'].transactions.length, 0)
+})
+
 test('fixed credit installments become saved expenses in every due month through the current month', () => {
   const budget = {
     monthlyRecords: {},
@@ -97,6 +154,21 @@ test('fixed credit installments become saved expenses in every due month through
     updated.monthlyRecords[month].transactions[0].amount
   )), [33, 33, 34])
   assert.ok(Object.values(updated.monthlyRecords).every((record) => record.transactions[0].isCreditInstallment))
+})
+
+test('omitted credit installment stays omitted after the month is reapplied', () => {
+  const budget = {
+    monthlyRecords: {},
+    recurringRules: [],
+    credits: [{ id: 9, name: 'Heladera', duration: 'fixed', totalPrice: 300, installments: 3, startDate: '2026-09-15' }],
+  }
+  const scheduled = applyMonthlyTransactions(budget, '2026-11')
+  const installment = scheduled.monthlyRecords['2026-10'].transactions[0]
+  const omitted = omitCreditInstallment(scheduled, '2026-10', installment.id)
+  const reapplied = applyMonthlyTransactions(omitted, '2026-11')
+
+  assert.equal(reapplied.monthlyRecords['2026-10'].transactions.length, 0)
+  assert.deepEqual(reapplied.monthlyRecords['2026-10'].skippedCreditInstallments, [9])
 })
 
 test('a credit extra expense is saved separately and does not change its installments', () => {

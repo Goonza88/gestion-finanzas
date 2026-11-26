@@ -7,6 +7,7 @@ import {
   addCreditExtraExpense as addCreditExtraExpenseToBudget,
   applyMonthlyTransactions as applyScheduledTransactions,
   closeRecurringRule as closeRecurringRuleState,
+  omitCreditInstallment as omitCreditInstallmentState,
   updateRecurringRule as updateRecurringRuleState,
 } from '../utils/monthlyRecords'
 import useCurrentMonthKey from './useCurrentMonthKey'
@@ -334,6 +335,10 @@ export default function useBudgetData() {
     setBudget((prev) => {
       const existing = prev.monthlyRecords[monthKey]
       if (!existing) return prev
+      const transaction = existing.transactions.find((tx) => tx.id === transactionId)
+      if (transaction?.isCreditInstallment) {
+        return omitCreditInstallmentState(prev, monthKey, transactionId)
+      }
       const updated = existing.transactions.filter((tx) => tx.id !== transactionId)
       return {
         ...prev,

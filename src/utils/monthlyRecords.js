@@ -54,6 +54,8 @@ function addTransaction(monthlyRecords, monthKey, transaction) {
 }
 
 function addCreditInstallmentIfMissing(monthlyRecords, credit, paymentMonth, installmentNumber) {
+  const paymentRecord = monthlyRecords[paymentMonth]
+  if ((paymentRecord?.skippedCreditInstallments || []).includes(credit.id)) return false
   const alreadyRecorded = Object.values(monthlyRecords).some((monthRecord) => (
     Array.isArray(monthRecord?.transactions) && monthRecord.transactions.some((transaction) => (
       transaction.sourceCreditId === credit.id &&
@@ -79,6 +81,26 @@ function addCreditInstallmentIfMissing(monthlyRecords, credit, paymentMonth, ins
     installmentNumber: credit.duration === 'fixed' ? installmentNumber : undefined,
   })
   return true
+}
+
+export function omitCreditInstallment(data, monthKey, transactionId) {
+  const record = data.monthlyRecords?.[monthKey]
+  const transaction = record?.transactions?.find((item) => item.id === transactionId)
+  if (!transaction?.isCreditInstallment) return data
+
+  const skipped = new Set(record.skippedCreditInstallments || [])
+  skipped.add(transaction.sourceCreditId)
+  return {
+    ...data,
+    monthlyRecords: {
+      ...data.monthlyRecords,
+      [monthKey]: {
+        ...record,
+        transactions: record.transactions.filter((item) => item.id !== transactionId),
+        skippedCreditInstallments: [...skipped],
+      },
+    },
+  }
 }
 
 export function addCreditInstallments(data, credit) {
@@ -107,52 +129,59 @@ export function applyMonthlyTransactions(data, monthKey) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) return data
 
   const monthlyRecords = { ...data.monthlyRecords }
-  const record = monthlyRecords[monthKey] || { transactions: [] }
-  const originalTransactions = Array.isArray(record.transactions) ? record.transactions : []
-  const recurringTransactions = [...originalTransactions]
-  const appliedIds = new Set(Array.isArray(record.appliedRecurringIds) ? record.appliedRecurringIds : [])
   let changed = false
 
   for (const rule of data.recurringRules || []) {
-    const ruleIsActive = rule.active !== false
-    const ruleApplies = ruleIsActive && rule.startMonth <= monthKey && (!rule.endMonth || monthKey <= rule.endMonth)
-    if (!ruleApplies) continue
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(rule.startMonth || '')) continue
+    const canBackfill = rule.active !== false || Boolean(rule.endMonth)
+    if (!canBackfill) continue
 
-    const alreadyExists = recurringTransactions.some((transaction) => transaction.sourceRecurringId === rule.id)
-    if (alreadyExists) {
-      if (!appliedIds.has(rule.id)) {
-        appliedIds.add(rule.id)
-        changed = true
+    const lastMonth = rule.endMonth && rule.endMonth < monthKey ? rule.endMonth : monthKey
+    if (rule.startMonth > lastMonth) continue
+
+    for (let index = monthIndex(rule.startMonth); index <= monthIndex(lastMonth); index += 1) {
+      const occurrenceMonth = monthKeyFromIndex(index)
+      const record = monthlyRecords[occurrenceMonth] || { transactions: [] }
+      const transactions = Array.isArray(record.transactions) ? record.transactions : []
+      const appliedIds = new Set(Array.isArray(record.appliedRecurringIds) ? record.appliedRecurringIds : [])
+      const alreadyExists = transactions.some((transaction) => transaction.sourceRecurringId === rule.id)
+
+      if (alreadyExists) {
+        if (!appliedIds.has(rule.id)) {
+          appliedIds.add(rule.id)
+          monthlyRecords[occurrenceMonth] = { ...record, appliedRecurringIds: [...appliedIds] }
+          changed = true
+        }
+        continue
       }
-      continue
-    }
-    if (appliedIds.has(rule.id)) continue
+      if (appliedIds.has(rule.id)) continue
 
-    const requestedDay = Number.isInteger(Number(rule.dayOfMonth)) && Number(rule.dayOfMonth) >= 1 && Number(rule.dayOfMonth) <= 31
-      ? Number(rule.dayOfMonth)
-      : 1
-    const [year, month] = monthKey.split('-').map(Number)
-    const day = Math.min(requestedDay, new Date(year, month, 0).getDate())
-    const transaction = {
-      id: null,
-      type: rule.type,
-      description: rule.description,
-      amount: Number(rule.amount),
-      date: `${monthKey}-${String(day).padStart(2, '0')}`,
-      sourceRecurringId: rule.id,
+      const requestedDay = Number.isInteger(Number(rule.dayOfMonth)) && Number(rule.dayOfMonth) >= 1 && Number(rule.dayOfMonth) <= 31
+        ? Number(rule.dayOfMonth)
+        : 1
+      const [year, month] = occurrenceMonth.split('-').map(Number)
+      const day = Math.min(requestedDay, new Date(year, month, 0).getDate())
+      const transaction = {
+        type: rule.type,
+        description: rule.description,
+        amount: Number(rule.amount),
+        date: `${occurrenceMonth}-${String(day).padStart(2, '0')}`,
+        sourceRecurringId: rule.id,
+      }
+      const savedTransaction = { ...transaction, id: nextTransactionId(monthlyRecords, transactions) }
+      appliedIds.add(rule.id)
+      monthlyRecords[occurrenceMonth] = {
+        ...record,
+        transactions: [savedTransaction, ...transactions],
+        appliedRecurringIds: [...appliedIds],
+      }
+      changed = true
     }
-    const savedTransaction = { ...transaction, id: nextTransactionId(monthlyRecords, recurringTransactions) }
-    recurringTransactions.unshift(savedTransaction)
-    appliedIds.add(rule.id)
-    changed = true
   }
 
-  if (changed || !monthlyRecords[monthKey]) {
-    monthlyRecords[monthKey] = {
-      ...record,
-      transactions: recurringTransactions,
-      appliedRecurringIds: [...appliedIds],
-    }
+  if (!monthlyRecords[monthKey]) {
+    monthlyRecords[monthKey] = { transactions: [], appliedRecurringIds: [] }
+    changed = true
   }
 
   const credits = (data.credits || []).map(getNormalizedCredit).filter(Boolean)
@@ -172,20 +201,7 @@ export function applyMonthlyTransactions(data, monthKey) {
     }
   }
 
-  const updatedRecord = monthlyRecords[monthKey] || record
-  const updatedAppliedIds = [...appliedIds]
-  if (
-    changed ||
-    !monthlyRecords[monthKey] ||
-    updatedAppliedIds.length !== (record.appliedRecurringIds || []).length
-  ) {
-    monthlyRecords[monthKey] = {
-      ...updatedRecord,
-      appliedRecurringIds: updatedAppliedIds,
-    }
-    return { ...data, monthlyRecords }
-  }
-  return data
+  return changed ? { ...data, monthlyRecords } : data
 }
 
 export function closeRecurringRule(data, ruleId, currentMonthKey, includeCurrentMonth) {

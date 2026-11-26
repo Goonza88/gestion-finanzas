@@ -38,8 +38,8 @@ export default function TransactionTable({ transactions, onDelete, onEdit }) {
                       <button type="button" className="ghost-button small" onClick={() => onEdit(tx)}>
                         Editar
                       </button>
-                      <button type="button" className="ghost-button small danger" onClick={() => setPendingDelete(tx)}>
-                        Eliminar
+                        <button type="button" className="ghost-button small danger" onClick={() => setPendingDelete(tx)}>
+                          {tx.isCreditInstallment ? 'Omitir cuota' : 'Eliminar'}
                       </button>
                     </div>
                   </td>
@@ -51,12 +51,14 @@ export default function TransactionTable({ transactions, onDelete, onEdit }) {
       </div>
       {pendingDelete && (
         <ConfirmationDialog
-          title="Eliminar movimiento"
-          description={`¿Eliminar “${pendingDelete.description}” por ${formatCurrency(pendingDelete.amount)}?`}
+          title={pendingDelete.isCreditInstallment ? 'Omitir cuota' : 'Eliminar movimiento'}
+          description={pendingDelete.isCreditInstallment
+            ? `¿Omitir “${pendingDelete.description}” por ${formatCurrency(pendingDelete.amount)}? No volverá a generarse.`
+            : `¿Eliminar “${pendingDelete.description}” por ${formatCurrency(pendingDelete.amount)}?`}
           onCancel={() => setPendingDelete(null)}
           actions={[
             { label: 'Cancelar', onClick: () => setPendingDelete(null) },
-            { label: 'Eliminar movimiento', variant: 'danger', onClick: () => {
+            { label: pendingDelete.isCreditInstallment ? 'Omitir cuota' : 'Eliminar movimiento', variant: 'danger', onClick: () => {
               onDelete(pendingDelete.id)
               setPendingDelete(null)
             } },
