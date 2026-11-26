@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Gestión de Ingresos",
+  "productName": "Gestión Financiera",
   "version": "1.0.2",
   "identifier": "ar.gonza.finanzas",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Gestión financiera",
+        "title": "Gestión Financiera",
         "width": 1400,
         "height": 900,
         "minWidth": 1100,

@@ -1,4 +1,4 @@
-# Gestión financiera
+# Gestión Financiera
 
 Aplicación de escritorio para registrar ingresos, egresos, compras en cuotas y pagos recurrentes.
 

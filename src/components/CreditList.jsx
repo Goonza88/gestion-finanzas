@@ -18,7 +18,7 @@ function getCreditFinalDate(credit) {
   if (credit.duration !== 'fixed') return ''
   const match = String(credit.startDate || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (!match) return ''
-  const [, yearText, monthText, dayText] = match
+  const [, yearText, monthText] = match
   const startYear = Number(yearText)
   const startMonth = Number(monthText)
   const installments = Number(credit.installments) || 1

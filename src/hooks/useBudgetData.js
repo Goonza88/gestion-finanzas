@@ -33,7 +33,8 @@ function loadBudget() {
     console.error('No se pudo acceder al almacenamiento local:', error)
     return { data: defaultState(), status: 'unavailable' }
   }
-  return readStoredBudget(storage, STORAGE_KEY, defaultState, isValidBackupData)
+  const loaded = readStoredBudget(storage, STORAGE_KEY, defaultState, isValidBackupData)
+  return { ...loaded, data: { ...loaded.data, year: currentYear } }
 }
 
 function saveBudget(data) {
@@ -165,6 +166,7 @@ export default function useBudgetData() {
   const [budget, setBudget] = useState(initialLoad.data)
   const [recoveryRequired, setRecoveryRequired] = useState(initialLoad.status === 'invalid' || initialLoad.status === 'unavailable')
   const currentMonthKey = useCurrentMonthKey()
+  const previousCurrentYear = useRef(Number(currentMonthKey.slice(0, 4)))
   const saveFailureAlerted = useRef(false)
   const startupBackupStarted = useRef(false)
 
@@ -195,6 +197,15 @@ export default function useBudgetData() {
       saveFailureAlerted.current = false
     }
   }, [budget, recoveryRequired])
+
+  useEffect(() => {
+    const currentYearFromDate = Number(currentMonthKey.slice(0, 4))
+    const previousYear = previousCurrentYear.current
+    if (currentYearFromDate !== previousYear) {
+      previousCurrentYear.current = currentYearFromDate
+      setBudget((prev) => prev.year === previousYear ? { ...prev, year: currentYearFromDate } : prev)
+    }
+  }, [currentMonthKey])
 
   const creditDetails = useMemo(() => {
     return budget.credits.map((credit) => {

@@ -59,7 +59,7 @@ export default function Header({ theme, onToggleTheme, onExportBackup, onImportB
     <>
       <header className="header">
         <div className="header-inner">
-          <h1>Gestión financiera</h1>
+          <h1>Gestión Financiera</h1>
           <div className="header-actions">
             <button className="ghost-button small" type="button" onClick={() => setExportConfirmationOpen(true)}>
               Exportar respaldo
