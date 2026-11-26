@@ -4,6 +4,40 @@
   flex-direction: column;
 }
 
+.data-recovery-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.data-recovery-card {
+  width: min(100%, 620px);
+  padding: 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.data-recovery-card h1 {
+  margin: 0 0 12px;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+
+.data-recovery-card > p:not(.eyebrow):not(.backup-error) {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.data-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
 .workspace {
   width: 100%;
   max-width: 1400px;

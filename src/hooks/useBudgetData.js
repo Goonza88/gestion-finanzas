@@ -10,6 +10,7 @@ import {
   updateRecurringRule as updateRecurringRuleState,
 } from '../utils/monthlyRecords'
 import useCurrentMonthKey from './useCurrentMonthKey'
+import { readStoredBudget } from '../utils/storedBudget'
 
 const STORAGE_KEY = 'gestion_financiera_personal_v1'
 const currentYear = new Date().getFullYear()
@@ -24,26 +25,19 @@ function defaultState() {
 }
 
 function loadBudget() {
+  let storage
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return defaultState()
-    const saved = JSON.parse(raw)
-    return {
-      ...defaultState(),
-      ...saved,
-      monthlyRecords: saved.monthlyRecords || {},
-      credits: saved.credits || [],
-      recurringRules: saved.recurringRules || [],
-    }
+    storage = globalThis.localStorage
   } catch (error) {
-    console.error('Error cargando datos:', error)
-    return defaultState()
+    console.error('No se pudo acceder al almacenamiento local:', error)
+    return { data: defaultState(), status: 'unavailable' }
   }
+  return readStoredBudget(storage, STORAGE_KEY, defaultState, isValidBackupData)
 }
 
 function saveBudget(data) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
     return true
   } catch (error) {
     console.error('Error guardando datos:', error)
@@ -79,6 +73,14 @@ function createBackupTimestamp() {
   const date = new Date()
   const pad = (value, length = 2) => String(value).padStart(length, '0')
   return `gestion-financiera-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}-${pad(date.getMilliseconds(), 3)}`
+}
+
+function isStoredBudgetValid(contents) {
+  try {
+    return isValidBackupData(JSON.parse(contents))
+  } catch {
+    return false
+  }
 }
 
 function isValidBackupData(data) {
@@ -158,23 +160,32 @@ function monthCreditCommitment(credit, monthKey) {
 }
 
 export default function useBudgetData() {
-  const [budget, setBudget] = useState(() => loadBudget())
+  const [initialLoad] = useState(() => loadBudget())
+  const [budget, setBudget] = useState(initialLoad.data)
+  const [recoveryRequired, setRecoveryRequired] = useState(initialLoad.status === 'invalid' || initialLoad.status === 'unavailable')
   const currentMonthKey = useCurrentMonthKey()
   const saveFailureAlerted = useRef(false)
   const startupBackupStarted = useRef(false)
 
   useEffect(() => {
-    if (!isTauri() || startupBackupStarted.current) return
+    if (recoveryRequired || !isTauri() || startupBackupStarted.current) return
     startupBackupStarted.current = true
-    const currentData = localStorage.getItem(STORAGE_KEY)
+    let currentData
+    try {
+      currentData = globalThis.localStorage.getItem(STORAGE_KEY)
+    } catch (error) {
+      console.error('No se pudo leer el contenido para la copia local de inicio:', error)
+      return
+    }
     if (!currentData) return
     invoke('create_local_backup', { contents: currentData, timestamp: createBackupTimestamp() }).catch((error) => {
       console.error('No se pudo crear la copia local de inicio:', error)
       window.alert('No se pudo crear la copia local de seguridad al iniciar. Los datos actuales siguen en la aplicación.')
     })
-  }, [])
+  }, [recoveryRequired])
 
   useEffect(() => {
+    if (recoveryRequired) return
     const saved = saveBudget(budget)
     if (!saved && !saveFailureAlerted.current) {
       saveFailureAlerted.current = true
@@ -182,7 +193,7 @@ export default function useBudgetData() {
     } else if (saved) {
       saveFailureAlerted.current = false
     }
-  }, [budget])
+  }, [budget, recoveryRequired])
 
   const creditDetails = useMemo(() => {
     return budget.credits.map((credit) => {
@@ -469,18 +480,25 @@ export default function useBudgetData() {
       throw new Error('El archivo no tiene un respaldo válido de Gestión Financiera.')
     }
     const restored = { ...backup.data, recurringRules: backup.data.recurringRules || [] }
-    const currentData = localStorage.getItem(STORAGE_KEY)
-    if (isTauri() && currentData) {
+    let currentData = null
+    try {
+      currentData = globalThis.localStorage.getItem(STORAGE_KEY)
+    } catch (error) {
+      console.error('No se pudieron leer los datos anteriores antes de importar:', error)
+    }
+    if (isTauri() && currentData && isStoredBudgetValid(currentData)) {
       await invoke('create_local_backup', { contents: currentData, timestamp: createBackupTimestamp() })
     }
     if (!saveBudget(restored)) {
       throw new Error('No se pudo guardar el respaldo en este equipo. Los datos actuales se conservaron.')
     }
     setBudget(restored)
+    setRecoveryRequired(false)
   }
 
   return {
     year: budget.year,
+    recoveryRequired,
     monthlyRecords: budget.monthlyRecords,
     credits: budget.credits,
     changeYear,

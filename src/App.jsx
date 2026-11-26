@@ -10,6 +10,7 @@ import RecurringPage from './pages/RecurringPage'
 import useBudgetData from './hooks/useBudgetData'
 import useTheme from './hooks/useTheme'
 import useCurrentMonthKey from './hooks/useCurrentMonthKey'
+import DataRecoveryPage from './components/DataRecoveryPage'
 
 function App() {
   const budget = useBudgetData()
@@ -18,8 +19,13 @@ function App() {
   const currentMonthKey = useCurrentMonthKey()
 
   useEffect(() => {
+    if (budget.recoveryRequired) return
     applyMonthlyTransactions(currentMonthKey)
-  }, [applyMonthlyTransactions, credits, recurringRules, currentMonthKey])
+  }, [applyMonthlyTransactions, budget.recoveryRequired, credits, recurringRules, currentMonthKey])
+
+  if (budget.recoveryRequired) {
+    return <DataRecoveryPage onImportBackup={budget.importBackup} />
+  }
 
   return (
     <HashRouter>

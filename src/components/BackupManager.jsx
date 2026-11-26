@@ -46,7 +46,7 @@ export default function BackupManager({ open, onClose, onRestore }) {
     try {
       const contents = await invoke('read_local_backup', { name: backup.name })
       await onRestore(contents)
-      window.alert('Copia restaurada. Se creó una copia local de los datos anteriores.')
+      window.alert('Copia restaurada correctamente.')
       onClose()
     } catch (reason) {
       setError(reason?.message || reason?.toString() || 'No se pudo restaurar la copia.')
@@ -70,7 +70,7 @@ export default function BackupManager({ open, onClose, onRestore }) {
           </header>
           {loading && <p className="empty-state">Buscando copias…</p>}
           {(unavailableMessage || error) && <p className="backup-error" role="alert">{unavailableMessage || error}</p>}
-          {!loading && !unavailableMessage && !error && backups.length === 0 && <p className="empty-state">Todavía no hay copias locales. Se crea una al iniciar la aplicación.</p>}
+          {!loading && !unavailableMessage && !error && backups.length === 0 && <p className="empty-state">No hay copias locales disponibles.</p>}
           {backups.length > 0 && (
             <div className="backup-list">
               {backups.map((backup) => (
@@ -91,7 +91,7 @@ export default function BackupManager({ open, onClose, onRestore }) {
               ))}
             </div>
           )}
-          <p className="backup-note">Se conservan las 30 copias más recientes. Antes de restaurar se guarda otra copia de los datos actuales.</p>
+          <p className="backup-note">Se conservan hasta 30 copias locales en este equipo.</p>
         </section>
       </div>
       {backupPendingRestore && (
